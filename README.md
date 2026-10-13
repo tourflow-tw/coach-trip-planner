@@ -79,3 +79,12 @@ node --check app.js
 | `app.js` | 地圖、路由、定位、備註、儲存及 Supabase 登入 |
 | `supabase/schema.sql` | 雲端資料表 + RLS |
 | `supabase/functions/coach-route/index.ts` | 選用的 ORS 伺服器端代理 |
+
+## 已部署的 Supabase 後端（2026-10-13）
+
+- Project: `coach-trip-planner`，Tokyo，Project ID `oafoxkpepuldeaaraxcm`。
+- `public.trips` 已部署，RLS 已啟用，四項擁有者讀寫政策，Supabase 安全顧問無警告。
+- `coach-route` Edge Function 已部署並要求 JWT，**仍需在 Supabase 設置 ORS_API_KEY 私人金鑰**才能啟用大型車路由。
+- GitHub Pages 須到 Settings → Pages 選擇 `main` / `(root)` 發布。
+- Email Auth 的 Site URL/Redirect URL 須改為正式 GitHub Pages URL，才能讓註冊驗證連結返回網站。
+- 前端只使用 Supabase Publishable Key，不得放入 Secret Key 或 ORS 私人金鑰。
