@@ -2,8 +2,8 @@
 (()=>{'use strict';
 const $=id=>document.getElementById(id),P=window.TourFlowPlanner;
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const storageKey='tourflow-trips-v1',configKey='tourflow-sb-config-v1',draftKey='tourflow-draft-v1';
-let draftTimer=null;
+const storageKey='tourflow-trips-v1',configKey='tourflow-sb-config-v1',draftKey='tourflow-draft-v1',googleKeyStorage='tourflow-google-browser-key-v1';
+let draftTimer=null, googleLoader=null, googleMap=null, googleRoutesLib=null, googleRenderedPolylines=[], googleRenderedMarkers=[];
 // Public project configuration; never put service_role / secret keys in frontend.
 const DEFAULT_SUPABASE={url:'https://oafoxkpepuldeaaraxcm.supabase.co',key:'sb_publishable_pmftI3EMAq-zFYHIpMdpjA_u9lp1jJT'};
 const PRESETS={'45':[3.8,2.5,12,18],'30':[3.3,2.45,9,12],'20':[2.9,2.2,7,7]};
@@ -19,12 +19,12 @@ const example=()=>[
 function setStatus(text,type='neutral'){$('status').textContent=text;$('status').className='status '+type}
 function cloudStatus(text){$('cloud-message').textContent=text}
 function setWorking(value){working=value;for(let id of ['plan-btn','opt-btn','apply-opt'])$(id).disabled=value;if(!value)$('scan-risk').disabled=!latestRoute}
-function clearResult(){latestRoute=null;latestMatrix=null;pendingOptimization=null;$('compare-panel').classList.add('is-hidden');$('scan-risk').disabled=true;$('metric-km').textContent='—';$('metric-drive').textContent='—';$('metric-total').textContent='—';$('metric-end').textContent='—';$('timeline-body').innerHTML='<tr><td colspan="5" class="placeholder">站點已更動，請重新計算路線。</td></tr>';$('timeline-caption').textContent='需要重新計算';$('warnings').innerHTML='';$('risk-summary').textContent='站點已更動，尚未查詢當前路線限制。';$('risk-list').innerHTML='';if(routeLayer)routeLayer.clearLayers();if(markerLayer)markerLayer.clearLayers();if(riskLayer)riskLayer.clearLayers();$('map-mode').textContent='等待重新規劃'}
+function clearResult(){latestRoute=null;latestMatrix=null;pendingOptimization=null;$('compare-panel').classList.add('is-hidden');$('scan-risk').disabled=true;$('metric-km').textContent='—';$('metric-drive').textContent='—';$('metric-total').textContent='—';$('metric-end').textContent='—';$('timeline-body').innerHTML='<tr><td colspan="5" class="placeholder">站點已更動，請重新計算路線。</td></tr>';$('timeline-caption').textContent='需要重新計算';$('warnings').innerHTML='';$('risk-summary').textContent='站點已更動，尚未查詢當前路線限制。';$('risk-list').innerHTML='';if(routeLayer)routeLayer.clearLayers();if(markerLayer)markerLayer.clearLayers();if(riskLayer)riskLayer.clearLayers();if(googleMap)clearGoogleMap();$('map-mode').textContent='等待重新規劃'}
 function invalidate(){clearResult();$('restore-btn').disabled=!previousOrder;scheduleDraft()}
 function makeStop(name='',stay=40){return {id:uid(),name,stay,locked:false,earliest:'',latest:''}}
 function renderStops(){stops[0].locked=true;stops[stops.length-1].locked=true;$('stop-count').textContent=stops.length+' 站';$('stop-list').innerHTML=stops.map((s,i)=>{let boundary=i===0||i===stops.length-1;return `<div class="stop-card" data-stop="${esc(s.id)}"><div class="stop-top"><span class="stop-number">${i+1}</span><strong>${i===0?'出發地':i===stops.length-1?'終點':'停靠點 '+i}</strong><div class="stop-tools"><button class="icon-btn" data-act="up" title="上移" ${boundary||i===1?'disabled':''}>↑</button><button class="icon-btn" data-act="down" title="下移" ${boundary||i===stops.length-2?'disabled':''}>↓</button><button class="icon-btn" data-act="del" title="刪除" ${boundary?'disabled':''}>✕</button></div></div><div class="stop-fields"><label>景點／完整地名<input data-field="name" value="${esc(s.name)}" maxlength="150" placeholder="輸入縣市與景點名稱" /></label><label>停留分鐘<input data-field="stay" type="number" min="0" max="1440" value="${Number(s.stay)||0}" /></label></div><div class="stop-bottom"><label>最早抵達<input data-field="earliest" type="time" value="${esc(s.earliest||'')}" /></label><label>最晚抵達<input data-field="latest" type="time" value="${esc(s.latest||'')}" /></label></div><div style="display:flex;justify-content:flex-end;margin-top:9px"><label class="stop-lock"><input data-field="locked" type="checkbox" ${s.locked?'checked':''} ${boundary?'disabled':''}/>固定在第 ${i+1} 站${boundary?'（起終點固定）':''}</label></div></div>`}).join('')}
-function readForm(){let data={title:$('trip-name').value.trim()||'未命名行程',departure:$('departure').value||'07:30',provider:$('provider').value,vehicle:$('vehicle').value,buffer:Number($('buffer').value),limit:Number($('day-limit').value),height:Number($('v-height').value),width:Number($('v-width').value),length:Number($('v-length').value),weight:Number($('v-weight').value),stops:stops.map(({id,name,stay,locked,earliest,latest})=>({id,name,stay,locked,earliest,latest})),risks:[...risks]};return data}
-function loadForm(data){if(!data||!Array.isArray(data.stops)||data.stops.length<2||data.stops.length>10)throw Error('行程資料格式不正確');for(let [id,val] of [['trip-name',data.title],['departure',data.departure],['provider',data.provider],['vehicle',data.vehicle],['buffer',data.buffer],['day-limit',data.limit],['v-height',data.height],['v-width',data.width],['v-length',data.length],['v-weight',data.weight]])if(val!==undefined&&val!==null)$(id).value=val;stops=data.stops.map(s=>({id:s.id||uid(),name:String(s.name||''),stay:Math.max(0,Number(s.stay)||0),locked:!!s.locked,earliest:s.earliest||'',latest:s.latest||''}));risks=(data.risks||[]).filter(s=>typeof s==='string').slice(0,100);renderStops();renderManualRisks();$('ors-settings').classList.toggle('is-hidden',$('provider').value!=='ors');previousOrder=null;invalidate()}
+function readForm(){let data={title:$('trip-name').value.trim()||'未命名行程',departure:$('departure').value||'07:30',tripDate:$('trip-date').value||'',provider:$('provider').value,vehicle:$('vehicle').value,buffer:Number($('buffer').value),limit:Number($('day-limit').value),height:Number($('v-height').value),width:Number($('v-width').value),length:Number($('v-length').value),weight:Number($('v-weight').value),stops:stops.map(({id,name,stay,locked,earliest,latest})=>({id,name,stay,locked,earliest,latest})),risks:[...risks]};return data}
+function loadForm(data){if(!data||!Array.isArray(data.stops)||data.stops.length<2||data.stops.length>10)throw Error('行程資料格式不正確');for(let [id,val] of [['trip-name',data.title],['departure',data.departure],['trip-date',data.tripDate],['provider',data.provider],['vehicle',data.vehicle],['buffer',data.buffer],['day-limit',data.limit],['v-height',data.height],['v-width',data.width],['v-length',data.length],['v-weight',data.weight]])if(val!==undefined&&val!==null)$(id).value=val;stops=data.stops.map(s=>({id:s.id||uid(),name:String(s.name||''),stay:Math.max(0,Number(s.stay)||0),locked:!!s.locked,earliest:s.earliest||'',latest:s.latest||''}));risks=(data.risks||[]).filter(s=>typeof s==='string').slice(0,100);renderStops();renderManualRisks();showProviderSettings();previousOrder=null;invalidate()}
 function vehicle(){const v={height:Number($('v-height').value),width:Number($('v-width').value),length:Number($('v-length').value),weight:Number($('v-weight').value)};for(let [key,value] of Object.entries(v))if(!Number.isFinite(value)||value<=0)throw Error('車輛規格無效：'+key);return v}
 function validate(){if(stops.length<2||stops.length>10)throw Error('請使用 2～10 個站點');for(const s of stops){if(!s.name.trim())throw Error('有站點尚未填寫名稱');if(!Number.isFinite(Number(s.stay))||Number(s.stay)<0||Number(s.stay)>1440)throw Error('停留時間需在 0～1440 分鐘');if(s.earliest&&!Number.isFinite(P.parseTime(s.earliest)))throw Error('最早抵達時間格式錯誤');if(s.latest&&!Number.isFinite(P.parseTime(s.latest)))throw Error('最晚抵達時間格式錯誤');if(s.earliest&&s.latest&&P.parseTime(s.earliest)>P.parseTime(s.latest))throw Error('站點「'+s.name+'」的最早時間晚於最晚時間')}vehicle();if(!Number.isFinite(P.parseTime($('departure').value)))throw Error('出發時間無效')}
 function showTime(min){return Math.round(min)+' 分'}
@@ -47,7 +47,7 @@ function validateBackupTrip(value){
  if(!value||typeof value!=='object'||typeof value.title!=='string'||value.title.length>100||!Array.isArray(value.stops)||value.stops.length<2||value.stops.length>10)throw Error('備份內有無效行程');
  const time=x=>typeof x==='string'&&/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(x)?x:'';
  const n=(v,floor,ceiling,fallback)=>Number.isFinite(Number(v))?Math.max(floor,Math.min(ceiling,Number(v))):fallback;
- return {title:value.title.slice(0,100)||'未命名行程',departure:time(value.departure)||'07:30',provider:value.provider==='ors'?'ors':'osrm',vehicle:['20','30','45','custom'].includes(value.vehicle)?value.vehicle:'45',buffer:n(value.buffer,1,2,1.15),limit:n(value.limit,1,24,11),height:n(value.height,1,5,3.8),width:n(value.width,1,3,2.5),length:n(value.length,2,20,12),weight:n(value.weight,1,40,18),stops:value.stops.map(s=>({id:String(s.id||uid()).slice(0,40),name:String(s.name||'').slice(0,150),stay:n(s.stay,0,1440,0),locked:!!s.locked,earliest:time(s.earliest),latest:time(s.latest)})),risks:Array.isArray(value.risks)?value.risks.filter(s=>typeof s==='string').slice(0,100).map(s=>s.slice(0,120)):[]};
+ return {title:value.title.slice(0,100)||'未命名行程',departure:time(value.departure)||'07:30',tripDate:typeof value.tripDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value.tripDate)?value.tripDate:'',provider:['ors','osrm','google'].includes(value.provider)?value.provider:'osrm',vehicle:['20','30','45','custom'].includes(value.vehicle)?value.vehicle:'45',buffer:n(value.buffer,1,2,1.15),limit:n(value.limit,1,24,11),height:n(value.height,1,5,3.8),width:n(value.width,1,3,2.5),length:n(value.length,2,20,12),weight:n(value.weight,1,40,18),stops:value.stops.map(s=>({id:String(s.id||uid()).slice(0,40),name:String(s.name||'').slice(0,150),stay:n(s.stay,0,1440,0),locked:!!s.locked,earliest:time(s.earliest),latest:time(s.latest)})),risks:Array.isArray(value.risks)?value.risks.filter(s=>typeof s==='string').slice(0,100).map(s=>s.slice(0,120)):[]};
 }
 async function importBackup(file){
  if(!file)return;
@@ -76,12 +76,118 @@ async function geocode(name){const key=name.trim().toLowerCase();if(coordinatesC
 async function locateAll(){let coords=[];for(let i=0;i<stops.length;i++){setStatus('正在搜尋地點 '+(i+1)+' / '+stops.length+'：'+stops[i].name);let key=stops[i].name.trim().toLowerCase();const exists=coordinatesCache.has(key);coords.push(await geocode(stops[i].name));if(!exists&&i!==stops.length-1)await sleep(1100)}return coords}
 function urlCoords(coords){return coords.map(c=>c.join(',')).join(';')}
 async function getMatrix(coords){let u='https://router.project-osrm.org/table/v1/driving/'+urlCoords(coords)+'?annotations=duration';const response=await fetch(u);if(!response.ok)throw Error('距離矩陣服務暫時無法使用 HTTP '+response.status);const json=await response.json();if(json.code!=='Ok'||!Array.isArray(json.durations))throw Error('路網矩陣無回應，請稍後再試');const m=json.durations.map(row=>row.map(x=>x==null?Infinity:x/60));return m}
+// Google Maps JavaScript Routes API; a browser-restricted key is entered once, never hardcoded in a public repository.
+function showProviderSettings(){
+ const provider=$('provider').value;
+ $('ors-settings').classList.toggle('is-hidden',provider!=='ors');
+ $('google-settings').classList.toggle('is-hidden',provider!=='google');
+ if(provider!=='google')showBaseMap();
+}
+function googleStoredKey(){try{return localStorage.getItem(googleKeyStorage)||''}catch{return ''}}
+function saveGoogleKey(){
+ const key=$('google-key').value.trim();
+ if(!/^[A-Za-z0-9_-]{20,}$/.test(key)){setStatus('請輸入有效的 Google Maps Platform API Key。不是 Google 登入密碼。','warn');return}
+ try{localStorage.setItem(googleKeyStorage,key)}catch{setStatus('此瀏覽器無法儲存金鑰，請檢查無痕模式或儲存空間。','warn');return}
+ setStatus('Google 瀏覽器金鑰已保存在這台裝置；請按「計算目前路線」自動查車程。請先於 Google Cloud 設定 HTTP 來源網域及 API 配額。','ok');
+}
+function googleDepartureTime(){
+ const date=$('trip-date').value,time=$('departure').value;
+ if(!date||!time)return null;
+ // TourFlow currently focuses on Taiwan itineraries, explicitly interpret 07:30 in GMT+08:00.
+ const dt=new Date(`${date}T${time}:00+08:00`);
+ return Number.isFinite(dt.getTime())&&dt.getTime()>Date.now()+60000?dt:null;
+}
+async function loadGoogleMaps(){
+ if(window.google?.maps?.importLibrary)return window.google.maps;
+ if(googleLoader)return googleLoader;
+ const key=$('google-key').value.trim()||googleStoredKey();
+ if(!key)throw Error('Google 自動估時需先設定一次 Google Maps API Key，之後無須手動填寫車程。');
+ googleLoader=new Promise((resolve,reject)=>{
+  const previousAuthFailure=window.gm_authFailure;
+  const script=document.createElement('script');
+  let done=false;
+  const finish=(error)=>{if(done)return;done=true;clearTimeout(timer);delete window.__tourflowGoogleReady;
+   if(error){googleLoader=null;reject(error)}else resolve(window.google.maps);
+  };
+  const timer=setTimeout(()=>finish(Error('Google 地圖載入逾時，請檢查 API Key、網域權限及網路。')),18000);
+  window.__tourflowGoogleReady=()=>finish();
+  window.gm_authFailure=()=>{if(typeof previousAuthFailure==='function')previousAuthFailure();finish(Error('Google Maps API Key 授權失敗，請確認帳單、網域限制與 Maps JavaScript API。'))};
+  script.onerror=()=>finish(Error('Google 地圖載入失敗，請確認網路及 API 授權。'));
+  script.async=true;
+  script.src='https://maps.googleapis.com/maps/api/js?'+new URLSearchParams({key,v:'weekly',language:'zh-TW',region:'TW',loading:'async',callback:'__tourflowGoogleReady'});
+  document.head.appendChild(script);
+ });
+ return googleLoader;
+}
+function showBaseMap(){
+ $('google-map').classList.add('is-hidden');$('map').classList.remove('is-hidden');
+ if(map)requestAnimationFrame(()=>map.invalidateSize({pan:false}));
+}
+function showGoogleBaseMap(){
+ $('map').classList.add('is-hidden');$('google-map').classList.remove('is-hidden');
+}
+async function ensureGoogleMap(){
+ await loadGoogleMaps();
+ const [{Map},routesLib]=await Promise.all([google.maps.importLibrary('maps'),google.maps.importLibrary('routes')]);
+ googleRoutesLib=routesLib;
+ if(!googleMap){showGoogleBaseMap();googleMap=new Map($('google-map'),{center:{lat:23.8,lng:120.98},zoom:7,mapTypeControl:false,streetViewControl:false})}
+ return googleMap;
+}
+function clearGoogleMap(){
+ for(const layer of googleRenderedPolylines)layer.setMap(null);
+ for(const marker of googleRenderedMarkers)marker.setMap(null);
+ googleRenderedPolylines=[];googleRenderedMarkers=[];
+}
+function drawGoogleMapRoute(route,coordinates){
+ clearGoogleMap();showGoogleBaseMap();
+ // Render Google route content exclusively on a Google Map.
+ googleRenderedPolylines=route.createPolylines();
+ for(const line of googleRenderedPolylines){line.setOptions({strokeColor:'#127b74',strokeWeight:5,strokeOpacity:.9});line.setMap(googleMap)}
+ const bounds=new google.maps.LatLngBounds();
+ for(const p of route.path){bounds.extend(p)}
+ const ends=[route.legs?.[0]?.startLocation,...(route.legs||[]).map(leg=>leg.endLocation)];
+ ends.forEach((loc,i)=>{if(!loc||!Number.isFinite(Number(loc.lat))||!Number.isFinite(Number(loc.lng)))return;
+  googleRenderedMarkers.push(new google.maps.Marker({map:googleMap,position:{lat:Number(loc.lat),lng:Number(loc.lng)},title:(i+1)+'. '+(stops[i]?.name||''),label:String(i+1)}));
+ });
+ googleMap.fitBounds(bounds,35);
+}
+async function computeGoogleRoute(){
+ await ensureGoogleMap();
+ const departure=googleDepartureTime();
+ const request={origin:stops[0].name,destination:stops[stops.length-1].name,
+  intermediates:stops.slice(1,-1).map(s=>({location:s.name})),
+  travelMode:'DRIVING',region:'tw',language:'zh-TW',fields:['path','legs','durationMillis','distanceMeters'],
+  routingPreference:departure?'TRAFFIC_AWARE':'TRAFFIC_UNAWARE'};
+ if(departure)request.departureTime=departure;
+ const response=await googleRoutesLib.Route.computeRoutes(request);
+ const route=response?.routes?.[0];
+ if(!route||!Array.isArray(route.legs)||route.legs.length!==stops.length-1||!route.path?.length)throw Error('Google 找不到完整路線，請確認所有站點名稱。');
+ const segments=route.legs.map(leg=>({km:leg.distanceMeters/1000,minutes:leg.durationMillis/60000}));
+ if(segments.some(v=>!Number.isFinite(v.km)||!Number.isFinite(v.minutes)))throw Error('Google 路線缺少距離或時間資訊。');
+ const coordinates=route.path.map(p=>[typeof p.lng==='function'?p.lng():p.lng,typeof p.lat==='function'?p.lat():p.lat]);
+ return {route,data:{segments,coordinates,source:departure?'Google Maps 預測路況車程（非遊覽車通行保證）':'Google Maps 一般車路網車程（不含即時路況）',provider:'google'},stopsCoords:[]};
+}
+async function computeGoogleMatrix(){
+ await ensureGoogleMap();
+ const names=stops.map(s=>s.name),departure=googleDepartureTime();
+ const request={origins:names,destinations:names,travelMode:'DRIVING',region:'tw',language:'zh-TW',
+   routingPreference:departure?'TRAFFIC_AWARE':'TRAFFIC_UNAWARE',fields:['durationMillis','condition']};
+ if(departure)request.departureTime=departure;
+ const response=await googleRoutesLib.RouteMatrix.computeRouteMatrix(request);
+ const rows=response?.matrix?.rows;
+ if(!Array.isArray(rows)||rows.length!==stops.length)throw Error('Google 時間矩陣未回傳完整資料。');
+ return rows.map((row,i)=>{
+  if(!Array.isArray(row.items)||row.items.length!==stops.length)throw Error('Google 時間矩陣資料缺漏。');
+  return row.items.map((item,j)=>i===j?0:(item.condition==='ROUTE_EXISTS'&&Number.isFinite(item.durationMillis)?item.durationMillis/60000:Infinity));
+ });
+}
+
 async function getCarRoute(coords){const url='https://router.project-osrm.org/route/v1/driving/'+urlCoords(coords)+'?overview=full&geometries=geojson&steps=false';const r=await fetch(url);if(!r.ok)throw Error('快速路線服務 HTTP '+r.status);const j=await r.json();if(j.code!=='Ok'||!j.routes?.length)throw Error('路線無法完成，請確認地點是否可由道路到達');const data=j.routes[0];return{segments:data.legs.map(x=>({km:x.distance/1000,minutes:x.duration/60})),coordinates:data.geometry.coordinates,source:'一般車路網基準＋緩衝（非大型車驗證）'}}
 async function getHgvRoute(coords){if(cloudClient&&cloudUser){try{const {data,error}=await cloudClient.functions.invoke('coach-route',{body:{coordinates:coords,vehicle:vehicle()}});if(!error&&data?.features?.[0])return convertOrs(data.features[0]);if(!error&&data?.error)throw Error(data.error)}catch(e){console.warn('Edge function unavailable, checking session ORS key:',e)}}const key=$('ors-key').value.trim();if(!key)throw Error('大型車路由需要 ORS Key；請填寫 Key 或先切換成「快速估算」');const res=await fetch('https://api.openrouteservice.org/v2/directions/driving-hgv/geojson',{method:'POST',headers:{Authorization:key,'Content-Type':'application/json'},body:JSON.stringify({coordinates:coords,instructions:false,options:{vehicle_type:'bus',profile_params:{restrictions:vehicle()}}})});const data=await res.json();if(!res.ok||!data.features?.length)throw Error('大型車路由失敗：'+(data.error?.message||data.message||res.status));return convertOrs(data.features[0])}
 function convertOrs(feature){return{segments:feature.properties.segments.map(s=>({km:s.distance/1000,minutes:s.duration/60})),coordinates:feature.geometry.coordinates,source:'大型車條件路由＋緩衝（仍需核對通行限制）'}}
-function displayRoute(data,coords){if(data.segments.length!==stops.length-1)throw Error('路由段數與站點數不一致');latestRoute=data;const latlngs=data.coordinates.map(c=>[c[1],c[0]]);if(routeLayer){routeLayer.clearLayers();markerLayer.clearLayers();riskLayer.clearLayers();routeLayer.addLayer(L.polyline(latlngs,{color:'#137b74',weight:5,opacity:.9}));coords.forEach((c,i)=>markerLayer.addLayer(L.marker([c[1],c[0]],{icon:L.divIcon({className:'tourflow-map-stop',html:'<span>'+(i+1)+'</span>',iconSize:[30,30],iconAnchor:[15,15]})}).bindPopup('<b>'+esc(i+1+'. '+stops[i].name)+'</b>')));map.fitBounds(L.latLngBounds(latlngs).pad(.1))}$('map-mode').textContent=data.source;$('map-subtitle').textContent='地圖路線僅供規劃比較；非司機導航。';$('scan-risk').disabled=false;$('risk-summary').textContent='沿線限制尚未查詢，所有未驗證路段仍可能存在限制。';$('risk-list').innerHTML='';processTimeline(data.segments,data.source)}
-async function plan(){try{validate();setWorking(true);setStatus('正在定位所有景點…');const coords=await locateAll();setStatus('正在取得路網路線，計算各站車程…');const data=$('provider').value==='ors'?await getHgvRoute(coords):await getCarRoute(coords);displayRoute(data,coords);pendingOptimization=null;$('compare-panel').classList.add('is-hidden');setStatus('路線計算完成。'+data.source+'；未含即時車流，請核對停靠點、天候與交通狀況。','ok');if($('risk-mode').value==='auto')await scanRisk()}catch(e){setStatus(e.message||String(e),'error')}finally{setWorking(false)}}
-async function optimizeRoute(){try{validate();setWorking(true);setStatus('正在定位與查詢各站之間的路網時間矩陣…');const coords=await locateAll();const matrix=await getMatrix(coords);latestMatrix=matrix;const result=P.optimize(stops,matrix,P.parseTime($('departure').value),Number($('buffer').value));pendingOptimization={...result,coords};$('compare-panel').classList.remove('is-hidden');$('before-min').textContent=showTime(result.original.result.driving);$('after-min').textContent=showTime(result.optimized.result.driving);$('before-sequence').textContent=stops.map(s=>s.name).join(' → ');$('after-sequence').textContent=result.optimized.order.map(i=>stops[i].name).join(' → ');let diff=result.original.result.driving-result.optimized.result.driving;let notices=[];if(result.original.result.violations.length)notices.push('原行程有時間窗超時警示。');if(result.optimized.result.violations.length)notices.push('候選行程也有時間窗超時警示。');if(!result.changed)notices.push('目前順序已是固定位置下的最佳候選，或沒有可移動站點。');if(diff>0.1)notices.push('路網矩陣估算可節省約 '+Math.round(diff)+' 分鐘（含緩衝）；套用後會重新查路線。');if($('provider').value==='ors')notices.push('排序依一般車路網時間矩陣，套用後再按大型車條件重算；不保證結果同樣縮短。');notices.push('已比較 '+result.tested+' 種可調整排列；固定站點位置不變。');$('opt-explanation').textContent=notices.join(' ');$('compare-source').textContent='一般車路網矩陣 · 非安全驗證';$('apply-opt').disabled=!result.changed;setStatus('候選順序已算出。先檢視比較，再決定是否套用。','ok');$('compare-panel').scrollIntoView({block:'nearest',behavior:'smooth'})}catch(e){setStatus(e.message||String(e),'error')}finally{setWorking(false);if(pendingOptimization)$('apply-opt').disabled=!pendingOptimization.changed}}
+function displayRoute(data,coords,googleRoute=null){if(data.segments.length!==stops.length-1)throw Error('路由段數與站點數不一致');latestRoute=data;const latlngs=data.coordinates.map(c=>[c[1],c[0]]);if(data.provider==='google'){if(routeLayer)routeLayer.clearLayers();if(markerLayer)markerLayer.clearLayers();if(riskLayer)riskLayer.clearLayers();drawGoogleMapRoute(googleRoute,coords)}else if(routeLayer){showBaseMap();routeLayer.clearLayers();markerLayer.clearLayers();riskLayer.clearLayers();routeLayer.addLayer(L.polyline(latlngs,{color:'#137b74',weight:5,opacity:.9}));coords.forEach((c,i)=>markerLayer.addLayer(L.marker([c[1],c[0]],{icon:L.divIcon({className:'tourflow-map-stop',html:'<span>'+(i+1)+'</span>',iconSize:[30,30],iconAnchor:[15,15]})}).bindPopup('<b>'+esc(i+1+'. '+stops[i].name)+'</b>')));map.fitBounds(L.latLngBounds(latlngs).pad(.1))}$('map-mode').textContent=data.source;$('map-subtitle').textContent='地圖路線僅供規劃比較；非司機導航。';$('scan-risk').disabled=false;$('risk-summary').textContent='沿線限制尚未查詢，所有未驗證路段仍可能存在限制。';$('risk-list').innerHTML='';processTimeline(data.segments,data.source)}
+async function plan(){try{validate();setWorking(true);const isGoogle=$('provider').value==='google';let coords=[],data,googleRoute=null;if(isGoogle){setStatus('Google Maps 正在自動查詢各站車程…');const response=await computeGoogleRoute();coords=response.stopsCoords;data=response.data;googleRoute=response.route}else{setStatus('正在定位所有景點…');coords=await locateAll();setStatus('正在取得路網路線，計算各站車程…');data=$('provider').value==='ors'?await getHgvRoute(coords):await getCarRoute(coords)}displayRoute(data,coords,googleRoute);pendingOptimization=null;$('compare-panel').classList.add('is-hidden');setStatus('路線計算完成。'+data.source+'；顯示時間已依緩衝設定加成。Google 並非遊覽車專用路由，出團前仍須確認道路限制。','ok');if($('risk-mode').value==='auto')await scanRisk()}catch(e){setStatus(e.message||String(e),'error')}finally{setWorking(false)}}
+async function optimizeRoute(){try{validate();setWorking(true);const isGoogle=$('provider').value==='google';setStatus(isGoogle?'Google Maps 正在自動比較景點間車程（時間矩陣）…':'正在定位與查詢各站之間的路網時間矩陣…');const coords=isGoogle?[]:await locateAll();const matrix=isGoogle?await computeGoogleMatrix():await getMatrix(coords);latestMatrix=matrix;const result=P.optimize(stops,matrix,P.parseTime($('departure').value),Number($('buffer').value));pendingOptimization={...result,coords};$('compare-panel').classList.remove('is-hidden');$('before-min').textContent=showTime(result.original.result.driving);$('after-min').textContent=showTime(result.optimized.result.driving);$('before-sequence').textContent=stops.map(s=>s.name).join(' → ');$('after-sequence').textContent=result.optimized.order.map(i=>stops[i].name).join(' → ');let diff=result.original.result.driving-result.optimized.result.driving;let notices=[];if(result.original.result.violations.length)notices.push('原行程有時間窗超時警示。');if(result.optimized.result.violations.length)notices.push('候選行程也有時間窗超時警示。');if(!result.changed)notices.push('目前順序已是固定位置下的最佳候選，或沒有可移動站點。');if(diff>0.1)notices.push('路網矩陣估算可節省約 '+Math.round(diff)+' 分鐘（含緩衝）；套用後會重新查路線。');if($('provider').value==='ors')notices.push('排序依一般車路網時間矩陣，套用後再按大型車條件重算；不保證結果同樣縮短。');if(isGoogle)notices.push('排序與路線同樣使用 Google Maps，但不代表大型車可通行，亦不保證即時路況。');notices.push('已比較 '+result.tested+' 種可調整排列；固定站點位置不變。');$('opt-explanation').textContent=notices.join(' ');$('compare-source').textContent=isGoogle?'Google Maps 自動車程矩陣 · 非大型車通行保證':'免費一般車路網矩陣 · 非安全驗證';$('apply-opt').disabled=!result.changed;setStatus('候選順序已算出。先檢視比較，再決定是否套用。','ok');$('compare-panel').scrollIntoView({block:'nearest',behavior:'smooth'})}catch(e){setStatus(e.message||String(e),'error')}finally{setWorking(false);if(pendingOptimization)$('apply-opt').disabled=!pendingOptimization.changed}}
 async function applyOptimization(){if(!pendingOptimization)return;const {optimized}=pendingOptimization;if(!optimized.changed)return;previousOrder=stops.map(s=>s.id);const old=[...stops];stops=optimized.order.map(i=>old[i]);renderStops();invalidate();setStatus('已套用優化順序，正在重新計算實際路線…');await plan();$('restore-btn').disabled=false}
 function restore(){if(!previousOrder)return;const index=new Map(stops.map(s=>[s.id,s]));if(previousOrder.some(id=>!index.has(id)))return;stops=previousOrder.map(id=>index.get(id));previousOrder=null;renderStops();invalidate();setStatus('已還原原始站點順序。請重新計算路線。','neutral')}
 function csvExport(){if(!latestRoute){setStatus('請先計算路線才能匯出 CSV。','warn');return}const result=P.scheduleFromSegments(stops,latestRoute.segments,P.parseTime($('departure').value),Number($('buffer').value));const lines=[['順序','站點','前段公里','前段車程（分鐘，含緩衝）','抵達','停留分鐘','離開','最早抵達','最晚抵達']];result.rows.forEach((r,i)=>lines.push([i+1,r.name,i?latestRoute.segments[i-1].km.toFixed(1):0,Math.round(r.leg),P.hhmm(r.arrive),r.stay,P.hhmm(r.leave),stops[i].earliest,stops[i].latest]));const quote=x=>'"'+String(x??'').replaceAll('"','""')+'"';const content='\ufeff'+lines.map(row=>row.map(quote).join(',')).join('\r\n');const a=document.createElement('a'),url=URL.createObjectURL(new Blob([content],{type:'text/csv;charset=utf-8'}));a.href=url;a.download=($('trip-name').value||'遊覽車行程')+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000)}
@@ -107,13 +213,14 @@ function bindEvents(){
  $('load-example').onclick=()=>{stops=example();risks=[];previousOrder=null;renderStops();renderManualRisks();invalidate();setStatus('已載入範例，點選「計算目前路線」即可開始。','neutral')};
  $('vehicle').onchange=()=>{if(PRESETS[$('vehicle').value]){const v=PRESETS[$('vehicle').value];['v-height','v-width','v-length','v-weight'].forEach((id,i)=>$(id).value=v[i])}invalidate()};
  ['v-height','v-width','v-length','v-weight'].forEach(id=>$(id).addEventListener('change',()=>{$('vehicle').value='custom';invalidate()}));
- ['departure','provider','buffer','day-limit'].forEach(id=>$(id).addEventListener('change',()=>{if(id==='provider')$('ors-settings').classList.toggle('is-hidden',$('provider').value!=='ors');invalidate()}));
+ ['departure','trip-date','provider','buffer','day-limit'].forEach(id=>$(id).addEventListener('change',()=>{if(id==='provider'){showProviderSettings();if($('provider').value==='google'&&$('buffer').value==='1.15'){$('buffer').value='1.0';setStatus('已切換 Google 自動估時，緩衝預設設為 0%。如需排團餘裕，可再調整緩衝。','neutral')}}invalidate()}));
  $('plan-btn').onclick=plan;$('opt-btn').onclick=optimizeRoute;$('apply-opt').onclick=applyOptimization;$('dismiss-opt').onclick=()=>{$('compare-panel').classList.add('is-hidden');pendingOptimization=null};$('restore-btn').onclick=restore;$('csv-btn').onclick=csvExport;$('print-btn').onclick=()=>window.print();$('scan-risk').onclick=scanRisk;
  $('risk-add').onclick=()=>{const v=$('risk-name').value.trim();if(!v)return;risks.push(v);$('risk-name').value='';renderManualRisks();scheduleDraft()};$('manual-risks').onclick=e=>{if(e.target.dataset.removeRisk===undefined)return;risks.splice(Number(e.target.dataset.removeRisk),1);renderManualRisks();scheduleDraft()};
  $('save-btn').onclick=persistLocal;$('btn-cloud').onclick=()=>{const records=localRecords();renderLocalRecords();$('cloud-dialog').showModal();cloudStatus('本機已有 '+records.length+' 筆行程；若連接雲端，可以跨裝置同步。')};$('local-load').onclick=localLoad;$('local-delete').onclick=localDelete;$('cloud-connect').onclick=connectCloud;$('cloud-signin').onclick=()=>authenticate(false);$('cloud-signup').onclick=()=>authenticate(true);$('cloud-signout').onclick=logout;$('cloud-save').onclick=cloudSave;$('cloud-load').onclick=cloudLoad;$('cloud-delete').onclick=cloudDelete;
+ $('google-save-key').onclick=saveGoogleKey;
  $('backup-export').onclick=downloadBackup;$('backup-import').onclick=()=>$('backup-file').click();$('backup-file').onchange=e=>importBackup(e.target.files?.[0]);
  document.querySelector('.sidebar').addEventListener('input',scheduleDraft);
 }
-function init(){stops=example();renderStops();renderManualRisks();bindEvents();initMap();const saved=DEFAULT_SUPABASE;if(saved.url&&saved.key){$('sb-url').value=saved.url;$('sb-key').value=saved.key}const recovered=restoreDraft();if(recovered){setStatus('免登入模式：已還原上次草稿，修改會自動儲存在此瀏覽器。','ok')}else{scheduleDraft();setStatus('免登入模式已啟用：直接規劃，修改會自動保留草稿。','ok')}if(window.location.protocol==='file:')setStatus('已開啟本機檔案；地圖與線上路由可能受瀏覽器限制。建議用 GitHub Pages。','warn')}
+function init(){stops=example();renderStops();renderManualRisks();bindEvents();initMap();$('google-key').value=googleStoredKey();showProviderSettings();const saved=DEFAULT_SUPABASE;if(saved.url&&saved.key){$('sb-url').value=saved.url;$('sb-key').value=saved.key}const recovered=restoreDraft();showProviderSettings();if(recovered){setStatus('免登入模式：已還原上次草稿，修改會自動儲存在此瀏覽器。','ok')}else{scheduleDraft();setStatus('免登入模式已啟用：直接規劃，修改會自動保留草稿。','ok')}if(window.location.protocol==='file:')setStatus('已開啟本機檔案；地圖與線上路由可能受瀏覽器限制。建議用 GitHub Pages。','warn')}
 init();
 })();
