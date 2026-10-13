@@ -18,7 +18,7 @@ Deno.serve(async(req:Request)=>{
   if(!car||['height','width','length','weight'].some(x=>!Number.isFinite(car[x])||car[x]<=0||car[x]>50))return reply({error:'車輛尺寸不正確'},400);
   const ctrl=new AbortController(),timeout=setTimeout(()=>ctrl.abort(),20000);
   try{
-   const res=await fetch('https://api.openrouteservice.org/v2/directions/driving-hgv/geojson',{method:'POST',headers:{'Content-Type':'application/json',Authorization:orsKey},body:JSON.stringify({coordinates:coords,instructions:false,options:{vehicle_type:'bus',profile_params:{restrictions:{height:car.height,width:car.width,length:car.length,weight:car.weight}}}}),signal:ctrl.signal});const data=await res.json();return reply(data,res.ok?200:502)
+   const res=await fetch('https://api.heigit.org/openrouteservice/v2/directions/driving-hgv/geojson',{method:'POST',headers:{'Content-Type':'application/json',Authorization:orsKey},body:JSON.stringify({coordinates:coords,instructions:false,options:{vehicle_type:'bus',profile_params:{restrictions:{height:car.height,width:car.width,length:car.length,weight:car.weight}}}}),signal:ctrl.signal});const data=await res.json();return reply(data,res.ok?200:502)
   }finally{clearTimeout(timeout)}
  }catch(e){return reply({error:e instanceof Error?e.message:'未知錯誤'},500)}
 });
