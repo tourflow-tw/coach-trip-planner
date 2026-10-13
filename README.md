@@ -97,3 +97,14 @@ node --check app.js
 - GitHub 已上傳前端，使用 Publishable Key 連接新 Supabase。若要讓網頁公開，請於 GitHub Pages 設定選擇 main / (root)。
 - 使用者註冊驗證郵件如需正確回到網站，請在 Supabase Authentication URL Configuration 設定 Site URL 和 Redirect URL：`https://tourflow-tw.github.io/coach-trip-planner/`（待 GitHub Pages 啟用）。
 - Publishable Key 不是資料庫 secret；不可上傳 service_role／sb_secret／ORS 私人金鑰。
+
+
+## V4.3：Google Maps 自動車程（需一次性授權）
+
+- 「Google Maps 自動車程」選項直接用 Google Maps JavaScript API Routes library `Route.computeRoutes` 計算每段車程、距離與路線，並在 **Google 地圖** 上畫出路徑，不需手動查 Google Maps 或填分鐘。
+- 「一鍵優化順序」在 Google 模式下改用 `RouteMatrix.computeRouteMatrix` 的 Google 時間矩陣，而非 OSRM。10 站將查詢最多 100 個路由矩陣元素，可能計費。
+- 選填行程日期，當行程時間在未來時，使用 `TRAFFIC_AWARE` 預測車流；未設定日期時使用 `TRAFFIC_UNAWARE`，估算與 Google Maps 目前顯示值可能不同。此模式仍是**一般小客車路網**，無法保證大型車限高、限重或禁行安全。
+- 需在 Google Cloud 建立 Maps Platform 帳單專案，啟用 **Maps JavaScript API** 與 **Routes API** 並取得 API Key；使用者在網站「Google Maps 自動車程」欄位填入一次即可。前端瀏覽器金鑰可被檢視，**務必用 HTTP Referrer 僅允許 `https://tourflow-tw.github.io/*`，並限制 API 類別與配額、設定預算警示**。不得使用無限制私人服務端金鑰。
+- Google 地圖、Routes 與 Routes Matrix 可能產生計費；不會在未取得有效 Google API Key 前發送請求。本版未取得使用者 Google 金鑰，因此 Google 線上功能**尚未完成真實 API 驗收**。
+- Google Routes 資料只顯示在 Google Map，不會把 Google 路線畫在 OpenStreetMap 底圖上。
+- OSRM 免費粗估保留，可供沒有 Google 金鑰時使用，並標記與 Google 預估不同是正常情況。Google 的路線資料也不能取代遊覽車可通行性檢查。
