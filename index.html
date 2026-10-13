@@ -7,7 +7,7 @@
   <meta name="description" content="旅程智排｜遊覽車行程規劃、車程比較、景點順序優化、道路風險提醒。" />
   <title>旅程智排 TourFlow｜遊覽車行程規劃</title>
   <link rel="stylesheet" href="leaflet.css?v=1.9.4-fix1" />
-  <link rel="stylesheet" href="styles.css?v=4.3-google-auto" />
+  <link rel="stylesheet" href="styles.css?v=4.4-entrance" />
 </head>
 <body>
   <header class="topbar">
@@ -37,7 +37,7 @@
       </section>
       <section class="surface">
         <div class="section-head"><div><span class="step">02</span><h2>景點與停靠點</h2></div><span id="stop-count" class="soft-label">4 站</span></div>
-        <p class="help">第一站和最後一站固定；中間站可鎖定位置，或指定最早／最晚抵達時間。輸入縣市及完整地點名稱可提升定位成功率。</p>
+        <p class="help">第一站和最後一站固定；中間站可鎖定位置，或指定最早／最晚抵達時間。大型園區優先採入口／下客點定位，不可使用山中央的園區中心；溪頭與妖怪村預設為同區步行銜接。</p>
         <div id="stop-list" class="stop-list"></div>
         <div class="stop-buttons"><button type="button" id="add-stop" class="btn subtle">＋ 新增站點</button><button type="button" id="load-example" class="btn outline">載入範例</button></div>
       </section>
@@ -50,8 +50,9 @@
       <div class="map-card"><div id="map"></div><div id="google-map" class="is-hidden"></div><div class="map-overlay"><span class="dot teal"></span><span id="map-mode">等待規劃</span></div></div>
       <div class="metric-row"><div class="metric-card"><span>全程距離</span><strong id="metric-km">—</strong><small>公里</small></div><div class="metric-card"><span>總行車時間</span><strong id="metric-drive">—</strong><small>含設定緩衝</small></div><div class="metric-card"><span>行程總時數</span><strong id="metric-total">—</strong><small>含各站停留</small></div><div class="metric-card"><span>預計結束</span><strong id="metric-end">—</strong><small>依出發時間推算</small></div></div>
       <div id="status" class="status neutral" role="status" aria-live="polite">免登入模式：直接輸入景點就能規劃，修改會自動存草稿；儲存行程及備份都不需要帳號。</div>
+      <section class="surface" id="location-section"><div id="location-audit" class="location-audit"><p>完成規劃後會列出各景點的道路入口／下客參考位置，方便核對是否錯抓山區中心點。</p></div></section>
       <section class="surface compare is-hidden" id="compare-panel"><div class="section-head"><div><span class="step">03</span><h2>優化前後比較</h2></div><span class="soft-label" id="compare-source">依路網估算</span></div><div class="compare-grid"><div><small>原本順序</small><strong id="before-min">—</strong><p id="before-sequence"></p></div><div><small>優化候選</small><strong id="after-min">—</strong><p id="after-sequence"></p></div></div><p id="opt-explanation" class="help"></p><div class="inline-actions"><button id="apply-opt" class="btn accent" type="button">套用建議順序</button><button id="dismiss-opt" class="btn outline" type="button">保留原本順序</button></div></section>
-      <section class="surface"><div class="section-head"><div><span class="step">04</span><h2>行程時間表</h2></div><span class="soft-label" id="timeline-caption">等待計算</span></div><div id="warnings"></div><div class="table-wrap"><table><thead><tr><th>站點</th><th>前段車程</th><th>抵達</th><th>停留</th><th>離開</th></tr></thead><tbody id="timeline-body"><tr><td colspan="5" class="placeholder">完成路線計算後，這裡會顯示逐站時間。</td></tr></tbody></table></div></section>
+      <section class="surface"><div class="section-head"><div><span class="step">04</span><h2>行程時間表</h2></div><span class="soft-label" id="timeline-caption">等待計算</span></div><div id="warnings"></div><div class="table-wrap"><table><thead><tr><th>站點</th><th>前段移動</th><th>抵達</th><th>停留</th><th>離開</th></tr></thead><tbody id="timeline-body"><tr><td colspan="5" class="placeholder">完成路線計算後，這裡會顯示逐站時間。</td></tr></tbody></table></div></section>
       <section class="surface"><div class="section-head"><div><span class="step">05</span><h2>道路疑慮提醒</h2></div><button id="scan-risk" class="btn outline small" type="button" disabled>查詢沿線公開限制</button></div><div class="caution-callout"><strong>規劃風險提醒，不是通行認證</strong><p>未標示橋洞、禁行或限重資料的路段仍可能有限制。快速估算使用一般汽車路網；大型車請切換專用路由並複核結果。</p></div><p id="risk-summary" class="help">目前尚未查詢 OSM 沿線候選限制。請將所有路段視為尚待確認。</p><div id="risk-list"></div><div class="manual-risk"><h3>自己補充提醒</h3><div class="manual-grid"><input id="risk-name" placeholder="例如：某景點入口道路偏窄" maxlength="120"/><button id="risk-add" class="btn subtle" type="button">新增備註</button></div><div id="manual-risks"></div></div></section>
       <footer class="footer"><a href="privacy.html">隱私權說明</a> · <a href="terms.html">使用條款</a> · 地圖資料 © OpenStreetMap contributors。快速估算使用 OSRM demo routing service；地點查詢使用 Nominatim（有速率限制）。公開資料可能不完整；本站僅供旅行社行程規劃，不提供駕駛導航。</footer>
     </main>
@@ -84,7 +85,8 @@
   </dialog>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.min.js"></script>
-  <script src="planner.js"></script>
-  <script src="app.js?v=4.3-google-auto"></script>
+  <script src="access-points.js?v=4.4"></script>
+  <script src="planner.js?v=4.4"></script>
+  <script src="app.js?v=4.4-entrance"></script>
 </body>
 </html>
