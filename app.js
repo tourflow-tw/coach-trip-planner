@@ -2,8 +2,9 @@
 (()=>{'use strict';
 const $=id=>document.getElementById(id),P=window.TourFlowPlanner;
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const storageKey='tourflow-trips-v1',configKey='tourflow-sb-config-v1';
-// Publishable key is public by design. Never put Supabase secret or ORS API keys here.
+const storageKey='tourflow-trips-v1',configKey='tourflow-sb-config-v1',draftKey='tourflow-draft-v1';
+let draftTimer=null;
+// Public project configuration; never put service_role / secret keys in frontend.
 const DEFAULT_SUPABASE={url:'https://oafoxkpepuldeaaraxcm.supabase.co',key:'sb_publishable_pmftI3EMAq-zFYHIpMdpjA_u9lp1jJT'};
 const PRESETS={'45':[3.8,2.5,12,18],'30':[3.3,2.45,9,12],'20':[2.9,2.2,7,7]};
 let stops=[],risks=[],map,routeLayer,markerLayer,riskLayer,latestRoute=null,latestMatrix=null,pendingOptimization=null,previousOrder=null,cloudClient=null,cloudUser=null,selectedCloudId=null,working=false;let coordinatesCache=new Map();
@@ -19,7 +20,7 @@ function setStatus(text,type='neutral'){$('status').textContent=text;$('status')
 function cloudStatus(text){$('cloud-message').textContent=text}
 function setWorking(value){working=value;for(let id of ['plan-btn','opt-btn','apply-opt'])$(id).disabled=value;if(!value)$('scan-risk').disabled=!latestRoute}
 function clearResult(){latestRoute=null;latestMatrix=null;pendingOptimization=null;$('compare-panel').classList.add('is-hidden');$('scan-risk').disabled=true;$('metric-km').textContent='—';$('metric-drive').textContent='—';$('metric-total').textContent='—';$('metric-end').textContent='—';$('timeline-body').innerHTML='<tr><td colspan="5" class="placeholder">站點已更動，請重新計算路線。</td></tr>';$('timeline-caption').textContent='需要重新計算';$('warnings').innerHTML='';$('risk-summary').textContent='站點已更動，尚未查詢當前路線限制。';$('risk-list').innerHTML='';if(routeLayer)routeLayer.clearLayers();if(markerLayer)markerLayer.clearLayers();if(riskLayer)riskLayer.clearLayers();$('map-mode').textContent='等待重新規劃'}
-function invalidate(){clearResult();$('restore-btn').disabled=!previousOrder}
+function invalidate(){clearResult();$('restore-btn').disabled=!previousOrder;scheduleDraft()}
 function makeStop(name='',stay=40){return {id:uid(),name,stay,locked:false,earliest:'',latest:''}}
 function renderStops(){stops[0].locked=true;stops[stops.length-1].locked=true;$('stop-count').textContent=stops.length+' 站';$('stop-list').innerHTML=stops.map((s,i)=>{let boundary=i===0||i===stops.length-1;return `<div class="stop-card" data-stop="${esc(s.id)}"><div class="stop-top"><span class="stop-number">${i+1}</span><strong>${i===0?'出發地':i===stops.length-1?'終點':'停靠點 '+i}</strong><div class="stop-tools"><button class="icon-btn" data-act="up" title="上移" ${boundary||i===1?'disabled':''}>↑</button><button class="icon-btn" data-act="down" title="下移" ${boundary||i===stops.length-2?'disabled':''}>↓</button><button class="icon-btn" data-act="del" title="刪除" ${boundary?'disabled':''}>✕</button></div></div><div class="stop-fields"><label>景點／完整地名<input data-field="name" value="${esc(s.name)}" maxlength="150" placeholder="輸入縣市與景點名稱" /></label><label>停留分鐘<input data-field="stay" type="number" min="0" max="1440" value="${Number(s.stay)||0}" /></label></div><div class="stop-bottom"><label>最早抵達<input data-field="earliest" type="time" value="${esc(s.earliest||'')}" /></label><label>最晚抵達<input data-field="latest" type="time" value="${esc(s.latest||'')}" /></label></div><div style="display:flex;justify-content:flex-end;margin-top:9px"><label class="stop-lock"><input data-field="locked" type="checkbox" ${s.locked?'checked':''} ${boundary?'disabled':''}/>固定在第 ${i+1} 站${boundary?'（起終點固定）':''}</label></div></div>`}).join('')}
 function readForm(){let data={title:$('trip-name').value.trim()||'未命名行程',departure:$('departure').value||'07:30',provider:$('provider').value,vehicle:$('vehicle').value,buffer:Number($('buffer').value),limit:Number($('day-limit').value),height:Number($('v-height').value),width:Number($('v-width').value),length:Number($('v-length').value),weight:Number($('v-weight').value),stops:stops.map(({id,name,stay,locked,earliest,latest})=>({id,name,stay,locked,earliest,latest})),risks:[...risks]};return data}
@@ -29,8 +30,42 @@ function validate(){if(stops.length<2||stops.length>10)throw Error('請使用 2�
 function showTime(min){return Math.round(min)+' 分'}
 function snapStopNames(){return stops.map(s=>s.name).join(' → ')}
 function processTimeline(segments,source){const departure=P.parseTime($('departure').value),factor=Number($('buffer').value);const result=P.scheduleFromSegments(stops,segments,departure,factor);if(!result.valid)throw Error('時間表建立失敗');$('metric-km').textContent=P.routeKm(segments).toFixed(1);$('metric-drive').textContent=showTime(result.driving);$('metric-total').textContent=(result.total/60).toFixed(1)+' h';$('metric-end').textContent=P.hhmm(result.end);$('timeline-caption').textContent=source;$('timeline-body').innerHTML=result.rows.map((r,i)=>`<tr><td><strong>${i+1}. ${esc(r.name)}</strong></td><td>${i?showTime(r.leg):'—'}</td><td>${P.hhmm(r.arrive)}</td><td>${r.stay} 分${r.wait?' (+等待 '+Math.round(r.wait)+')':''}</td><td>${P.hhmm(r.leave)}</td></tr>`).join('');const messages=[...result.violations];const lim=Number($('day-limit').value)*60;if(result.total>lim)messages.push('行程總時數 '+(result.total/60).toFixed(1)+' 小時，超過自訂提醒值 '+$('day-limit').value+' 小時。');$('warnings').innerHTML=messages.map(x=>`<div class="timing-warning">⚠ ${esc(x)}</div>`).join('');return result}
+// Local-first: no email, login or Supabase request is required to plan trips.
+function saveDraft(){try{localStorage.setItem(draftKey,JSON.stringify(readForm()))}catch(e){setStatus('草稿儲存失敗；請下載 JSON 備份。','warn')}}
+function scheduleDraft(){if(draftTimer)clearTimeout(draftTimer);draftTimer=setTimeout(saveDraft,250)}
+function restoreDraft(){try{const data=JSON.parse(localStorage.getItem(draftKey)||'null');if(data){loadForm(data);return true}}catch(e){console.warn('Cannot restore local draft',e)}return false}
+function downloadBackup(){
+ try{
+  const payload={format:'tourflow-local-backup',version:1,exportedAt:new Date().toISOString(),trips:localRecords(),draft:readForm()};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='TourFlow-行程備份-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);cloudStatus('已匯出 '+payload.trips.length+' 筆本機行程及目前草稿。請妥善保管備份檔。');
+ }catch(e){cloudStatus('備份失敗：'+e.message)}
+}
+function validateBackupTrip(value){
+ if(!value||typeof value!=='object'||typeof value.title!=='string'||value.title.length>100||!Array.isArray(value.stops)||value.stops.length<2||value.stops.length>10)throw Error('備份內有無效行程');
+ const time=x=>typeof x==='string'&&/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(x)?x:'';
+ const n=(v,floor,ceiling,fallback)=>Number.isFinite(Number(v))?Math.max(floor,Math.min(ceiling,Number(v))):fallback;
+ return {title:value.title.slice(0,100)||'未命名行程',departure:time(value.departure)||'07:30',provider:value.provider==='ors'?'ors':'osrm',vehicle:['20','30','45','custom'].includes(value.vehicle)?value.vehicle:'45',buffer:n(value.buffer,1,2,1.15),limit:n(value.limit,1,24,11),height:n(value.height,1,5,3.8),width:n(value.width,1,3,2.5),length:n(value.length,2,20,12),weight:n(value.weight,1,40,18),stops:value.stops.map(s=>({id:String(s.id||uid()).slice(0,40),name:String(s.name||'').slice(0,150),stay:n(s.stay,0,1440,0),locked:!!s.locked,earliest:time(s.earliest),latest:time(s.latest)})),risks:Array.isArray(value.risks)?value.risks.filter(s=>typeof s==='string').slice(0,100).map(s=>s.slice(0,120)):[]};
+}
+async function importBackup(file){
+ if(!file)return;
+ try{
+  if(file.size>2*1024*1024)throw Error('備份超過 2 MB 上限');
+  const payload=JSON.parse(await file.text());
+  if(payload?.format!=='tourflow-local-backup'||payload.version!==1||!Array.isArray(payload.trips)||payload.trips.length>60)throw Error('不支援的備份格式或版本');
+  const restored=payload.trips.map(validateBackupTrip),draft=payload.draft?validateBackupTrip(payload.draft):null;
+  const existing=localRecords(),same=new Set(existing.map(r=>r.title));const overwrites=restored.filter(r=>same.has(r.title)).length;
+  if(!window.confirm('匯入 '+restored.length+' 筆行程'+(overwrites?'，其中 '+overwrites+' 筆同名行程會覆蓋本機紀錄':'')+'。要繼續嗎？'))return;
+  const map=new Map(existing.map(r=>[r.title,r]));for(const trip of restored)map.set(trip.title,trip);
+  localStorage.setItem(storageKey,JSON.stringify([...map.values()].slice(-60)));
+  if(draft){loadForm(draft);saveDraft()}
+  renderLocalRecords();cloudStatus('已匯入 '+restored.length+' 筆行程'+(draft?'及備份草稿':'')+'，資料已存到此瀏覽器。');
+ }catch(e){cloudStatus('無法匯入備份：'+e.message)}finally{$('backup-file').value=''}
+}
 function localRecords(){try{return JSON.parse(localStorage.getItem(storageKey)||'[]')}catch{return []}}
-function persistLocal(){const data=readForm(),records=localRecords(),idx=records.findIndex(r=>r.title===data.title);if(idx>=0)records[idx]=data;else records.push(data);localStorage.setItem(storageKey,JSON.stringify(records.slice(-60)));renderLocalRecords();setStatus('已儲存在這台裝置（非雲端）。需要在其他裝置同步時，請連接 Supabase。','ok')}
+function persistLocal(){const data=readForm(),records=localRecords(),idx=records.findIndex(r=>r.title===data.title);if(idx>=0)records[idx]=data;else records.push(data);localStorage.setItem(storageKey,JSON.stringify(records.slice(-60)));saveDraft();renderLocalRecords();setStatus('已儲存到此裝置。可從「行程管理」下載備份；免登入不會跨裝置同步。','ok')}
 function renderLocalRecords(){const records=localRecords();$('local-trip-list').innerHTML='<option value="">選擇本機行程（'+records.length+' 筆）</option>'+records.map((r,i)=>`<option value="${i}">${esc(r.title||'未命名行程')}</option>`).join('')}
 function localLoad(){const index=$('local-trip-list').value;if(index==='')return cloudStatus('請先選擇本機行程。');try{loadForm(localRecords()[Number(index)]);$('cloud-dialog').close();setStatus('已讀取本機行程，請重新計算路線。','ok')}catch(e){cloudStatus('讀取失敗：'+e.message)}}
 function localDelete(){const index=$('local-trip-list').value;if(index==='')return cloudStatus('請先選擇本機行程。');if(!window.confirm('確定刪除本機這筆行程？'))return;const records=localRecords();records.splice(Number(index),1);localStorage.setItem(storageKey,JSON.stringify(records));renderLocalRecords();cloudStatus('已刪除本機行程。')}
@@ -74,9 +109,11 @@ function bindEvents(){
  ['v-height','v-width','v-length','v-weight'].forEach(id=>$(id).addEventListener('change',()=>{$('vehicle').value='custom';invalidate()}));
  ['departure','provider','buffer','day-limit'].forEach(id=>$(id).addEventListener('change',()=>{if(id==='provider')$('ors-settings').classList.toggle('is-hidden',$('provider').value!=='ors');invalidate()}));
  $('plan-btn').onclick=plan;$('opt-btn').onclick=optimizeRoute;$('apply-opt').onclick=applyOptimization;$('dismiss-opt').onclick=()=>{$('compare-panel').classList.add('is-hidden');pendingOptimization=null};$('restore-btn').onclick=restore;$('csv-btn').onclick=csvExport;$('print-btn').onclick=()=>window.print();$('scan-risk').onclick=scanRisk;
- $('risk-add').onclick=()=>{const v=$('risk-name').value.trim();if(!v)return;risks.push(v);$('risk-name').value='';renderManualRisks()};$('manual-risks').onclick=e=>{if(e.target.dataset.removeRisk===undefined)return;risks.splice(Number(e.target.dataset.removeRisk),1);renderManualRisks()};
- $('save-btn').onclick=()=>{persistLocal();if(cloudUser)cloudSave()};$('btn-cloud').onclick=()=>{const records=localRecords();renderLocalRecords();$('cloud-dialog').showModal();cloudStatus('本機已有 '+records.length+' 筆行程；若連接雲端，可以跨裝置同步。')};$('local-load').onclick=localLoad;$('local-delete').onclick=localDelete;$('cloud-connect').onclick=connectCloud;$('cloud-signin').onclick=()=>authenticate(false);$('cloud-signup').onclick=()=>authenticate(true);$('cloud-signout').onclick=logout;$('cloud-save').onclick=cloudSave;$('cloud-load').onclick=cloudLoad;$('cloud-delete').onclick=cloudDelete;
+ $('risk-add').onclick=()=>{const v=$('risk-name').value.trim();if(!v)return;risks.push(v);$('risk-name').value='';renderManualRisks();scheduleDraft()};$('manual-risks').onclick=e=>{if(e.target.dataset.removeRisk===undefined)return;risks.splice(Number(e.target.dataset.removeRisk),1);renderManualRisks();scheduleDraft()};
+ $('save-btn').onclick=persistLocal;$('btn-cloud').onclick=()=>{const records=localRecords();renderLocalRecords();$('cloud-dialog').showModal();cloudStatus('本機已有 '+records.length+' 筆行程；若連接雲端，可以跨裝置同步。')};$('local-load').onclick=localLoad;$('local-delete').onclick=localDelete;$('cloud-connect').onclick=connectCloud;$('cloud-signin').onclick=()=>authenticate(false);$('cloud-signup').onclick=()=>authenticate(true);$('cloud-signout').onclick=logout;$('cloud-save').onclick=cloudSave;$('cloud-load').onclick=cloudLoad;$('cloud-delete').onclick=cloudDelete;
+ $('backup-export').onclick=downloadBackup;$('backup-import').onclick=()=>$('backup-file').click();$('backup-file').onchange=e=>importBackup(e.target.files?.[0]);
+ document.querySelector('.sidebar').addEventListener('input',scheduleDraft);
 }
-function init(){stops=example();renderStops();renderManualRisks();bindEvents();initMap();const saved=DEFAULT_SUPABASE;if(saved.url&&saved.key){$('sb-url').value=saved.url;$('sb-key').value=saved.key;connectCloud().catch(()=>{})}if(window.location.protocol==='file:')setStatus('已開啟離線檔案；地圖與跨網域 API 可能受瀏覽器限制。建議透過 GitHub Pages 或本機 HTTP 伺服器使用。','warn')}
+function init(){stops=example();renderStops();renderManualRisks();bindEvents();initMap();const saved=DEFAULT_SUPABASE;if(saved.url&&saved.key){$('sb-url').value=saved.url;$('sb-key').value=saved.key}const recovered=restoreDraft();if(recovered){setStatus('免登入模式：已還原上次草稿，修改會自動儲存在此瀏覽器。','ok')}else{scheduleDraft();setStatus('免登入模式已啟用：直接規劃，修改會自動保留草稿。','ok')}if(window.location.protocol==='file:')setStatus('已開啟本機檔案；地圖與線上路由可能受瀏覽器限制。建議用 GitHub Pages。','warn')}
 init();
 })();
