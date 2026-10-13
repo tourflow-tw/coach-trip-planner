@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict');
+const P=require('../planner.js');
+const s=[{name:'A',stay:0,locked:true},{name:'B',stay:5,locked:false},{name:'C',stay:5,locked:false},{name:'D',stay:0,locked:true}];
+const m=[[0,20,5,5],[20,0,25,5],[5,25,0,20],[5,5,20,0]];
+const v=P.optimize(s,m,450,1);
+assert.deepEqual(v.optimized.order,[0,2,1,3]);
+assert.equal(v.original.result.driving,65);
+assert.equal(v.optimized.result.driving,35);
+assert.equal(P.hhmm(470),'07:50');
+const fixed=[...s];fixed[1]={...fixed[1],locked:true};assert.equal(P.optimize(fixed,m,450,1).optimized.order[1],1);
+const timed=s.map(x=>({...x}));timed[2].latest='07:40';const t=P.optimize(timed,m,450,1);assert.equal(t.optimized.result.violations.length,0);
+assert.equal(P.scheduleFromSegments(s,[{km:1,minutes:5},{km:1,minutes:5},{km:1,minutes:5}],480,1.15).valid,true);
+console.log('All planner optimization/time-window tests passed.');
