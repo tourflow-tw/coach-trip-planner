@@ -1,3 +1,11 @@
+## 免登入模式（V4.1）
+
+- **開啟網頁直接使用**，不用註冊或登入。網站預設僅用瀏覽器 `localStorage` 保留草稿及本機行程，無需與 Supabase 交換使用者資料。
+- 「儲存到本機」建立／更新本機行程；「行程管理／備份」可以載入歷史行程、下載 JSON 備份、在另一裝置匯入 JSON。
+- 編輯中草稿會自動儲存並在重開同一瀏覽器時恢復；不是雲端同步。**無痕模式、清除瀏覽器資料、換裝置／瀏覽器均可能遺失本機內容。**
+- Supabase 已部署的 Auth、`trips` 表和 RLS 不變；選用登入後的雲端功能保留。不得把 `trips` 表改成公開匿名讀寫。
+- 若需跨裝置同步，請改用選用的雲端登入，或手動匯出／匯入 JSON。
+
 # 旅程智排 TourFlow — 遊覽車行程規劃系統
 
 這是**旅行社排團工具**，不是駕駛導航。支援桌機與手機，前端可部署在 GitHub Pages，Supabase 雲端是選用的登入／儲存服務。
@@ -80,11 +88,12 @@ node --check app.js
 | `supabase/schema.sql` | 雲端資料表 + RLS |
 | `supabase/functions/coach-route/index.ts` | 選用的 ORS 伺服器端代理 |
 
-## 已部署的 Supabase 後端（2026-10-13）
 
-- Project: `coach-trip-planner`，Tokyo，Project ID `oafoxkpepuldeaaraxcm`。
-- `public.trips` 已部署，RLS 已啟用，四項擁有者讀寫政策，Supabase 安全顧問無警告。
-- `coach-route` Edge Function 已部署並要求 JWT，**仍需在 Supabase 設置 ORS_API_KEY 私人金鑰**才能啟用大型車路由。
-- GitHub Pages 須到 Settings → Pages 選擇 `main` / `(root)` 發布。
-- Email Auth 的 Site URL/Redirect URL 須改為正式 GitHub Pages URL，才能讓註冊驗證連結返回網站。
-- 前端只使用 Supabase Publishable Key，不得放入 Secret Key 或 ORS 私人金鑰。
+## 雲端部署進度（2026-10-13）
+
+- Supabase 專案 `coach-trip-planner` 已建立（Tokyo，專案代號 `oafoxkpepuldeaaraxcm`）。
+- `public.trips` 已部署，開啟 RLS 並設置四項行程擁有者政策，安全顧問目前無警告。
+- `coach-route` Edge Function 已部署且驗證 JWT；**ORS_API_KEY 尚未設定**，大型車路由仍未啟用。
+- GitHub 已上傳前端，使用 Publishable Key 連接新 Supabase。若要讓網頁公開，請於 GitHub Pages 設定選擇 main / (root)。
+- 使用者註冊驗證郵件如需正確回到網站，請在 Supabase Authentication URL Configuration 設定 Site URL 和 Redirect URL：`https://tourflow-tw.github.io/coach-trip-planner/`（待 GitHub Pages 啟用）。
+- Publishable Key 不是資料庫 secret；不可上傳 service_role／sb_secret／ORS 私人金鑰。
