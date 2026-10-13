@@ -13,12 +13,12 @@
   <header class="topbar">
     <div class="top-inner">
       <div class="brand"><span class="brand-mark">TF</span><span><strong>旅程智排</strong><small>TOURFLOW · COACH TRIP PLANNER</small></span></div>
-      <nav class="top-actions"><span class="top-pill">行程規劃專用 · 非導航</span><button id="btn-cloud" class="btn ghost" type="button">雲端登入／設定</button></nav>
+      <nav class="top-actions"><span class="top-pill">免登入模式 · 本機自動存草稿</span><button id="btn-cloud" class="btn ghost" type="button">行程管理／備份</button></nav>
     </div>
   </header>
   <div class="app-shell">
     <aside class="sidebar">
-      <div class="intro"><span class="eyebrow">PLANNING WORKSPACE</span><h1>把每一趟行程，<br><em>排得更順。</em></h1><p>輸入停靠點、設定停留與指定時間；一鍵比較原本順序和優化後的車程。</p></div>
+      <div class="intro"><span class="eyebrow">PLANNING WORKSPACE</span><h1>把每一趟行程，<br><em>排得更順。</em></h1><p>不用帳號，開啟就能排團；輸入站點與停留時間，按一下即可比較優化順序。草稿會自動保留在這台裝置。</p></div>
       <section class="surface">
         <div class="section-head"><div><span class="step">01</span><h2>基本設定</h2></div><span class="soft-label">可隨時修改</span></div>
         <label>行程名稱<input id="trip-name" maxlength="100" placeholder="例如：溪頭杉林溪一日遊" value="南投溪頭一日遊" /></label>
@@ -35,21 +35,46 @@
         <div class="stop-buttons"><button type="button" id="add-stop" class="btn subtle">＋ 新增站點</button><button type="button" id="load-example" class="btn outline">載入範例</button></div>
       </section>
       <div class="primary-actions"><button id="plan-btn" class="btn primary" type="button">計算目前路線</button><button id="opt-btn" class="btn accent" type="button">✦ 一鍵優化順序</button></div>
-      <div class="bottom-actions"><button id="restore-btn" class="btn subtle" type="button" disabled>還原原本順序</button><button id="save-btn" class="btn subtle" type="button">儲存行程</button></div>
+      <div class="bottom-actions"><button id="restore-btn" class="btn subtle" type="button" disabled>還原原本順序</button><button id="save-btn" class="btn subtle" type="button">儲存到本機</button></div>
       <p class="sidebar-footnote">時間為規劃估算，非即時交通、法定工時判定或大客車通行保證。出團前仍請向車行確認。</p>
     </aside>
     <main class="workspace">
       <div class="workspace-head"><div><span class="eyebrow">ROUTE OVERVIEW</span><h2>地圖與行程分析</h2><p id="map-subtitle">先計算路線，地圖會顯示各站與車程。</p></div><div class="action-cluster"><button id="csv-btn" type="button" class="btn outline">匯出 CSV</button><button id="print-btn" type="button" class="btn outline">列印行程</button></div></div>
       <div class="map-card"><div id="map"></div><div class="map-overlay"><span class="dot teal"></span><span id="map-mode">等待規劃</span></div></div>
       <div class="metric-row"><div class="metric-card"><span>全程距離</span><strong id="metric-km">—</strong><small>公里</small></div><div class="metric-card"><span>總行車時間</span><strong id="metric-drive">—</strong><small>含設定緩衝</small></div><div class="metric-card"><span>行程總時數</span><strong id="metric-total">—</strong><small>含各站停留</small></div><div class="metric-card"><span>預計結束</span><strong id="metric-end">—</strong><small>依出發時間推算</small></div></div>
-      <div id="status" class="status neutral" role="status" aria-live="polite">請輸入站點並選擇「計算目前路線」。不需要 Supabase 帳號也能先試用。</div>
+      <div id="status" class="status neutral" role="status" aria-live="polite">免登入模式：直接輸入景點就能規劃，修改會自動存草稿；儲存行程及備份都不需要帳號。</div>
       <section class="surface compare is-hidden" id="compare-panel"><div class="section-head"><div><span class="step">03</span><h2>優化前後比較</h2></div><span class="soft-label" id="compare-source">依路網估算</span></div><div class="compare-grid"><div><small>原本順序</small><strong id="before-min">—</strong><p id="before-sequence"></p></div><div><small>優化候選</small><strong id="after-min">—</strong><p id="after-sequence"></p></div></div><p id="opt-explanation" class="help"></p><div class="inline-actions"><button id="apply-opt" class="btn accent" type="button">套用建議順序</button><button id="dismiss-opt" class="btn outline" type="button">保留原本順序</button></div></section>
       <section class="surface"><div class="section-head"><div><span class="step">04</span><h2>行程時間表</h2></div><span class="soft-label" id="timeline-caption">等待計算</span></div><div id="warnings"></div><div class="table-wrap"><table><thead><tr><th>站點</th><th>前段車程</th><th>抵達</th><th>停留</th><th>離開</th></tr></thead><tbody id="timeline-body"><tr><td colspan="5" class="placeholder">完成路線計算後，這裡會顯示逐站時間。</td></tr></tbody></table></div></section>
       <section class="surface"><div class="section-head"><div><span class="step">05</span><h2>道路疑慮提醒</h2></div><button id="scan-risk" class="btn outline small" type="button" disabled>查詢沿線公開限制</button></div><div class="caution-callout"><strong>規劃風險提醒，不是通行認證</strong><p>未標示橋洞、禁行或限重資料的路段仍可能有限制。快速估算使用一般汽車路網；大型車請切換專用路由並複核結果。</p></div><p id="risk-summary" class="help">目前尚未查詢 OSM 沿線候選限制。請將所有路段視為尚待確認。</p><div id="risk-list"></div><div class="manual-risk"><h3>自己補充提醒</h3><div class="manual-grid"><input id="risk-name" placeholder="例如：某景點入口道路偏窄" maxlength="120"/><button id="risk-add" class="btn subtle" type="button">新增備註</button></div><div id="manual-risks"></div></div></section>
       <footer class="footer">地圖資料 © OpenStreetMap contributors。快速估算使用 OSRM demo routing service；地點查詢使用 Nominatim（有速率限制）。公開資料可能不完整；本站僅供旅行社行程規劃，不提供駕駛導航。</footer>
     </main>
   </div>
-  <dialog id="cloud-dialog" class="cloud-dialog"><form method="dialog"><div class="dialog-title"><h2>雲端行程管理</h2><button class="btn plain" value="cancel" aria-label="關閉">✕</button></div></form><p class="help">沒有 Supabase 專案也能先使用本機儲存。完成新專案建立後，再填入 Project URL 和 Publishable Key。</p><div class="local-records"><h3>本機行程</h3><label>從本機選擇行程<select id="local-trip-list"><option value="">尚無紀錄</option></select></label><div class="inline-actions"><button id="local-load" class="btn subtle" type="button">讀取本機行程</button><button id="local-delete" class="btn outline" type="button">刪除本機行程</button></div></div><hr class="soft-rule" /><label>Supabase URL<input id="sb-url" placeholder="https://xxxx.supabase.co" autocomplete="off" /></label><label>Publishable Key<input id="sb-key" type="password" placeholder="sb_publishable_..." autocomplete="off" /></label><button id="cloud-connect" class="btn primary" type="button">連接雲端</button><div class="dialog-row"><label>登入電子郵件<input id="sb-email" type="email" autocomplete="username" /></label><label>密碼<input id="sb-password" type="password" autocomplete="current-password" /></label></div><div class="inline-actions"><button id="cloud-signin" class="btn subtle" type="button">登入</button><button id="cloud-signup" class="btn outline" type="button">註冊</button><button id="cloud-signout" class="btn outline" type="button">登出</button></div><div class="dialog-row"><label>雲端行程清單<select id="cloud-trip-list"><option value="">請先登入</option></select></label></div><div class="inline-actions"><button id="cloud-save" class="btn subtle" type="button">儲存到雲端</button><button id="cloud-load" class="btn outline" type="button">載入雲端行程</button><button id="cloud-delete" class="btn danger" type="button">刪除雲端行程</button></div><p id="cloud-message" class="help" role="status">尚未連接 Supabase。</p></dialog>
+  <dialog id="cloud-dialog" class="cloud-dialog">
+    <form method="dialog"><div class="dialog-title"><h2>行程管理與備份</h2><button class="btn plain" value="cancel" aria-label="關閉">✕</button></div></form>
+    <p class="help"><strong>免登入模式已啟用。</strong>行程和草稿只會保存在此裝置、此瀏覽器；清除網站資料或換手機可能遺失，建議定期下載備份。</p>
+    <div class="local-records">
+      <h3>我的本機行程</h3>
+      <label>選擇已儲存的行程<select id="local-trip-list"><option value="">尚無紀錄</option></select></label>
+      <div class="inline-actions"><button id="local-load" class="btn subtle" type="button">讀取行程</button><button id="local-delete" class="btn outline" type="button">刪除行程</button></div>
+      <hr class="soft-rule" />
+      <h3>備份與換裝置</h3>
+      <div class="inline-actions"><button id="backup-export" class="btn primary" type="button">下載 JSON 備份</button><button id="backup-import" class="btn outline" type="button">匯入備份</button><input id="backup-file" class="is-hidden" type="file" accept=".json,application/json" aria-label="選擇行程備份 JSON 檔" /></div>
+      <p class="help">備份包含本機已儲存行程與目前草稿；不含登入密碼及路由金鑰。到其他裝置開同一網址後，按「匯入備份」即可接續規劃。</p>
+    </div>
+    <details class="cloud-advanced"><summary>選用：Supabase 雲端同步（需要登入）</summary>
+      <div class="cloud-advanced-body">
+        <p class="help">只有需要多裝置自動同步時才使用。雲端仍保留原本帳號登入與 RLS 權限，不會開放匿名公開寫入。</p>
+        <label>Supabase URL<input id="sb-url" placeholder="https://xxxx.supabase.co" autocomplete="off" /></label>
+        <label>Publishable Key<input id="sb-key" type="password" placeholder="sb_publishable_..." autocomplete="off" /></label>
+        <button id="cloud-connect" class="btn subtle" type="button">連接雲端</button>
+        <div class="dialog-row"><label>登入電子郵件<input id="sb-email" type="email" autocomplete="username" /></label><label>密碼<input id="sb-password" type="password" autocomplete="current-password" /></label></div>
+        <div class="inline-actions"><button id="cloud-signin" class="btn subtle" type="button">登入</button><button id="cloud-signup" class="btn outline" type="button">註冊</button><button id="cloud-signout" class="btn outline" type="button">登出</button></div>
+        <div class="dialog-row"><label>雲端行程清單<select id="cloud-trip-list"><option value="">請先登入</option></select></label></div>
+        <div class="inline-actions"><button id="cloud-save" class="btn subtle" type="button">儲存到雲端</button><button id="cloud-load" class="btn outline" type="button">讀取雲端行程</button><button id="cloud-delete" class="btn danger" type="button">刪除雲端行程</button></div>
+      </div>
+    </details>
+    <p id="cloud-message" class="help" role="status">免登入模式：已準備就緒。</p>
+  </dialog>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.min.js"></script>
   <script src="planner.js"></script>
