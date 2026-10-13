@@ -22,3 +22,17 @@
 #map.leaflet-container img.leaflet-tile{max-width:none!important;max-height:none!important}
 .tourflow-map-stop{width:30px;height:30px;border:2px solid #fff;border-radius:50%;background:#167b74;color:#fff;display:grid;place-items:center;font-weight:800;font-size:12px;box-shadow:0 2px 8px rgba(12,46,44,.3)}
 .tourflow-map-stop span{display:block;line-height:1}
+
+/* V4.4: every routing point shows its access method. */
+.location-audit h3{font-size:15px;margin:0 0 10px;color:#1a4241}
+.location-audit p{font-size:12px;color:#607a74;margin:0}
+.audit-item{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 12px;border-top:1px solid #e7eeeb;padding:11px 0;font-size:12px}
+.audit-item strong{min-width:190px;max-width:100%;color:#193f3d}
+.audit-item span{color:#196e63;font-weight:650}
+.audit-item small{flex-basis:100%;color:#627b77;line-height:1.6}
+@media(max-width:580px){.audit-item{flex-direction:column;gap:3px}.audit-item strong{min-width:0}}
+
+/* Gate marker differs from the shared roadside access point. */
+.tourflow-gate-stop{width:30px;height:30px;background:#c77932;color:white;border:2px solid white;border-radius:50%;display:grid;place-items:center;box-shadow:0 2px 7px #6d4b2b66;font-weight:800}
+.tourflow-gate-stop span,.tourflow-coach-access span{line-height:1}
+.tourflow-coach-access{width:30px;height:30px;background:#1d7969;color:white;border:2px solid white;border-radius:7px;display:grid;place-items:center;font-size:12px;font-weight:800;box-shadow:0 2px 7px #103b3566}
