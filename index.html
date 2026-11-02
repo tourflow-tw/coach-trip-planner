@@ -1,92 +1,12 @@
-<!doctype html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#102b30" />
-  <meta name="description" content="旅程智排｜遊覽車行程規劃、車程比較、景點順序優化、道路風險提醒。" />
-  <title>旅程智排 TourFlow｜遊覽車行程規劃</title>
-  <link rel="stylesheet" href="leaflet.css?v=1.9.4-fix1" />
-  <link rel="stylesheet" href="styles.css?v=4.4-entrance" />
-</head>
-<body>
-  <header class="topbar">
-    <div class="top-inner">
-      <div class="brand"><span class="brand-mark">TF</span><span><strong>旅程智排</strong><small>TOURFLOW · COACH TRIP PLANNER</small></span></div>
-      <nav class="top-actions"><span class="top-pill">免登入模式 · 本機自動存草稿</span><button id="btn-cloud" class="btn ghost" type="button">行程管理／備份</button></nav>
-    </div>
-  </header>
-  <div class="app-shell">
-    <aside class="sidebar">
-      <div class="intro"><span class="eyebrow">PLANNING WORKSPACE</span><h1>把每一趟行程，<br><em>排得更順。</em></h1><p>不用帳號，開啟就能排團；輸入站點與停留時間，按一下即可比較優化順序。草稿會自動保留在這台裝置。</p></div>
-      <section class="surface">
-        <div class="section-head"><div><span class="step">01</span><h2>基本設定</h2></div><span class="soft-label">可隨時修改</span></div>
-        <label>行程名稱<input id="trip-name" maxlength="100" placeholder="例如：溪頭杉林溪一日遊" value="南投溪頭一日遊" /></label>
-        <div class="pair"><label>出發時間<input id="departure" type="time" value="07:30" /></label><label>估時計算方式<select id="provider"><option value="osrm">免費粗估（OSRM，誤差較大）</option><option value="google">Google Maps 自動車程（建議）</option><option value="ors">大型車限制路由（需 ORS API）</option></select></label></div>
-        <label class="trip-date-row">行程日期（選填：Google 模式用於預測路況）<input id="trip-date" type="date" /></label>
-        <div class="pair"><label>車型<select id="vehicle"><option value="45">43～45 人座</option><option value="30">30 人座</option><option value="20">20 人座</option><option value="custom">自訂車型</option></select></label><label>時間緩衝<select id="buffer"><option value="1.0">不加成</option><option value="1.15" selected>+15%</option><option value="1.3">+30%</option><option value="1.5">+50%</option></select></label></div>
-        <div class="dimensions"><label>車高 m<input id="v-height" type="number" min="1" step="0.1" value="3.8" /></label><label>車寬 m<input id="v-width" type="number" min="1" step="0.05" value="2.5" /></label><label>車長 m<input id="v-length" type="number" min="2" step="0.1" value="12" /></label><label>總重 t<input id="v-weight" type="number" min="1" step="0.5" value="18" /></label></div>
-        <div class="pair"><label>每日提醒門檻（小時）<input id="day-limit" type="number" min="1" max="24" step="0.5" value="11" /></label><label>道路風險查詢<select id="risk-mode"><option value="manual">規劃完成後按鈕查詢</option><option value="auto">路線完成自動查詢</option></select></label></div>
-        <div id="google-settings" class="api-settings is-hidden">
-          <label>Google Maps Platform 瀏覽器 API Key（首次設定一次）<input id="google-key" type="password" autocomplete="off" placeholder="在 Google Cloud 啟用 Maps JavaScript API 與 Routes API" /></label>
-          <button id="google-save-key" class="btn subtle small" type="button">在本瀏覽器保存金鑰</button>
-          <p class="help">只需設定一次，之後自動查詢 Google 路線與車程，也用 Google 時間矩陣優化順序，不需要手動輸入 Google Maps 分鐘數。此為瀏覽器金鑰，會出現在網路請求中；請在 Google Cloud 限制允許的網站網域、API 種類及每日配額。Google Maps Platform 需要啟用帳單，依實際用量可能收費。</p>
-          <p class="help">Google Maps 是一般汽車路線，**不代表43～45人座大客車可通行**。如果選擇日期且出發時間在未來，才會嘗試套用 Google 預測車流；沒有日期則為不含即時車流的基準估算。</p>
-        </div>
-        <div id="ors-settings" class="api-settings is-hidden"><label>openrouteservice API Key<input id="ors-key" type="password" autocomplete="off" placeholder="每次工作階段輸入；不儲存於雲端" /></label><p class="help">僅供大型車路由請求使用。未連接 Supabase Edge Function 前，金鑰由本瀏覽器直接送至 ORS。公開／共用裝置請避免使用私人金鑰。</p></div>
-      </section>
-      <section class="surface">
-        <div class="section-head"><div><span class="step">02</span><h2>景點與停靠點</h2></div><span id="stop-count" class="soft-label">4 站</span></div>
-        <p class="help">第一站和最後一站固定；中間站可鎖定位置，或指定最早／最晚抵達時間。大型園區優先採入口／下客點定位，不可使用山中央的園區中心；溪頭與妖怪村預設為同區步行銜接。</p>
-        <div id="stop-list" class="stop-list"></div>
-        <div class="stop-buttons"><button type="button" id="add-stop" class="btn subtle">＋ 新增站點</button><button type="button" id="load-example" class="btn outline">載入範例</button></div>
-      </section>
-      <div class="primary-actions"><button id="plan-btn" class="btn primary" type="button">計算目前路線</button><button id="opt-btn" class="btn accent" type="button">✦ 一鍵優化順序</button></div>
-      <div class="bottom-actions"><button id="restore-btn" class="btn subtle" type="button" disabled>還原原本順序</button><button id="save-btn" class="btn subtle" type="button">儲存到本機</button></div>
-      <p class="sidebar-footnote">時間為規劃估算，非即時交通、法定工時判定或大客車通行保證。出團前仍請向車行確認。</p>
-    </aside>
-    <main class="workspace">
-      <div class="workspace-head"><div><span class="eyebrow">ROUTE OVERVIEW</span><h2>地圖與行程分析</h2><p id="map-subtitle">選 Google 模式可直接查 Google 路線；免費 OSRM 只是粗估。</p></div><div class="action-cluster"><button id="csv-btn" type="button" class="btn outline">匯出 CSV</button><button id="print-btn" type="button" class="btn outline">列印行程</button></div></div>
-      <div class="map-card"><div id="map"></div><div id="google-map" class="is-hidden"></div><div class="map-overlay"><span class="dot teal"></span><span id="map-mode">等待規劃</span></div></div>
-      <div class="metric-row"><div class="metric-card"><span>全程距離</span><strong id="metric-km">—</strong><small>公里</small></div><div class="metric-card"><span>總行車時間</span><strong id="metric-drive">—</strong><small>含設定緩衝</small></div><div class="metric-card"><span>行程總時數</span><strong id="metric-total">—</strong><small>含各站停留</small></div><div class="metric-card"><span>預計結束</span><strong id="metric-end">—</strong><small>依出發時間推算</small></div></div>
-      <div id="status" class="status neutral" role="status" aria-live="polite">免登入模式：直接輸入景點就能規劃，修改會自動存草稿；儲存行程及備份都不需要帳號。</div>
-      <section class="surface" id="location-section"><div id="location-audit" class="location-audit"><p>完成規劃後會列出各景點的道路入口／下客參考位置，方便核對是否錯抓山區中心點。</p></div></section>
-      <section class="surface compare is-hidden" id="compare-panel"><div class="section-head"><div><span class="step">03</span><h2>優化前後比較</h2></div><span class="soft-label" id="compare-source">依路網估算</span></div><div class="compare-grid"><div><small>原本順序</small><strong id="before-min">—</strong><p id="before-sequence"></p></div><div><small>優化候選</small><strong id="after-min">—</strong><p id="after-sequence"></p></div></div><p id="opt-explanation" class="help"></p><div class="inline-actions"><button id="apply-opt" class="btn accent" type="button">套用建議順序</button><button id="dismiss-opt" class="btn outline" type="button">保留原本順序</button></div></section>
-      <section class="surface"><div class="section-head"><div><span class="step">04</span><h2>行程時間表</h2></div><span class="soft-label" id="timeline-caption">等待計算</span></div><div id="warnings"></div><div class="table-wrap"><table><thead><tr><th>站點</th><th>前段移動</th><th>抵達</th><th>停留</th><th>離開</th></tr></thead><tbody id="timeline-body"><tr><td colspan="5" class="placeholder">完成路線計算後，這裡會顯示逐站時間。</td></tr></tbody></table></div></section>
-      <section class="surface"><div class="section-head"><div><span class="step">05</span><h2>道路疑慮提醒</h2></div><button id="scan-risk" class="btn outline small" type="button" disabled>查詢沿線公開限制</button></div><div class="caution-callout"><strong>規劃風險提醒，不是通行認證</strong><p>未標示橋洞、禁行或限重資料的路段仍可能有限制。快速估算使用一般汽車路網；大型車請切換專用路由並複核結果。</p></div><p id="risk-summary" class="help">目前尚未查詢 OSM 沿線候選限制。請將所有路段視為尚待確認。</p><div id="risk-list"></div><div class="manual-risk"><h3>自己補充提醒</h3><div class="manual-grid"><input id="risk-name" placeholder="例如：某景點入口道路偏窄" maxlength="120"/><button id="risk-add" class="btn subtle" type="button">新增備註</button></div><div id="manual-risks"></div></div></section>
-      <footer class="footer"><a href="privacy.html">隱私權說明</a> · <a href="terms.html">使用條款</a> · 地圖資料 © OpenStreetMap contributors。快速估算使用 OSRM demo routing service；地點查詢使用 Nominatim（有速率限制）。公開資料可能不完整；本站僅供旅行社行程規劃，不提供駕駛導航。</footer>
-    </main>
-  </div>
-  <dialog id="cloud-dialog" class="cloud-dialog">
-    <form method="dialog"><div class="dialog-title"><h2>行程管理與備份</h2><button class="btn plain" value="cancel" aria-label="關閉">✕</button></div></form>
-    <p class="help"><strong>免登入模式已啟用。</strong>行程和草稿只會保存在此裝置、此瀏覽器；清除網站資料或換手機可能遺失，建議定期下載備份。</p>
-    <div class="local-records">
-      <h3>我的本機行程</h3>
-      <label>選擇已儲存的行程<select id="local-trip-list"><option value="">尚無紀錄</option></select></label>
-      <div class="inline-actions"><button id="local-load" class="btn subtle" type="button">讀取行程</button><button id="local-delete" class="btn outline" type="button">刪除行程</button></div>
-      <hr class="soft-rule" />
-      <h3>備份與換裝置</h3>
-      <div class="inline-actions"><button id="backup-export" class="btn primary" type="button">下載 JSON 備份</button><button id="backup-import" class="btn outline" type="button">匯入備份</button><input id="backup-file" class="is-hidden" type="file" accept=".json,application/json" aria-label="選擇行程備份 JSON 檔" /></div>
-      <p class="help">備份包含本機已儲存行程與目前草稿；不含登入密碼及路由金鑰。到其他裝置開同一網址後，按「匯入備份」即可接續規劃。</p>
-    </div>
-    <details class="cloud-advanced"><summary>選用：Supabase 雲端同步（需要登入）</summary>
-      <div class="cloud-advanced-body">
-        <p class="help">只有需要多裝置自動同步時才使用。雲端仍保留原本帳號登入與 RLS 權限，不會開放匿名公開寫入。</p>
-        <label>Supabase URL<input id="sb-url" placeholder="https://xxxx.supabase.co" autocomplete="off" /></label>
-        <label>Publishable Key<input id="sb-key" type="password" placeholder="sb_publishable_..." autocomplete="off" /></label>
-        <button id="cloud-connect" class="btn subtle" type="button">連接雲端</button>
-        <div class="dialog-row"><label>登入電子郵件<input id="sb-email" type="email" autocomplete="username" /></label><label>密碼<input id="sb-password" type="password" autocomplete="current-password" /></label></div>
-        <div class="inline-actions"><button id="cloud-signin" class="btn subtle" type="button">登入</button><button id="cloud-signup" class="btn outline" type="button">註冊</button><button id="cloud-signout" class="btn outline" type="button">登出</button></div>
-        <div class="dialog-row"><label>雲端行程清單<select id="cloud-trip-list"><option value="">請先登入</option></select></label></div>
-        <div class="inline-actions"><button id="cloud-save" class="btn subtle" type="button">儲存到雲端</button><button id="cloud-load" class="btn outline" type="button">讀取雲端行程</button><button id="cloud-delete" class="btn danger" type="button">刪除雲端行程</button></div>
-      </div>
-    </details>
-    <p id="cloud-message" class="help" role="status">免登入模式：已準備就緒。</p>
-  </dialog>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.min.js"></script>
-  <script src="access-points.js?v=4.4"></script>
-  <script src="planner.js?v=4.4"></script>
-  <script src="app.js?v=4.4-ors-heigit"></script>
-</body>
-</html>
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111827"><title>MeetingFlow｜AI 會議紀錄</title><style>
+:root{font-family:system-ui,"Noto Sans TC",sans-serif;color:#e5e7eb;background:#0b1220}*{box-sizing:border-box}body{margin:0}header{background:#111b2d;border-bottom:1px solid #344054;padding:18px 4vw;display:flex;align-items:center;justify-content:space-between;gap:12px}main{max-width:1150px;margin:auto;padding:24px 16px}.logo{font-weight:800;font-size:22px}.sub{color:#9da9bf;font-size:13px}.panel{background:#151f32;border:1px solid #344054;border-radius:16px;padding:20px;margin-bottom:18px}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.split{display:grid;grid-template-columns:2fr 1fr;gap:18px}input,textarea,select{background:#0b1425;border:1px solid #475569;color:#f8fafc;padding:12px;border-radius:9px;font:inherit;max-width:100%}input[type=text]{width:100%}button{border:0;background:#3b82f6;color:white;border-radius:10px;padding:12px 15px;font:inherit;cursor:pointer}button.secondary{background:#334155}button.red{background:#be4545}button:disabled{opacity:.4;cursor:not-allowed}h1{margin:0;font-size:23px}h2{font-size:18px;margin:0 0 15px}p{line-height:1.7}.log{min-height:260px;max-height:490px;overflow:auto}.segment{border-bottom:1px solid #334155;padding:12px 0}.segment .meta{font-size:12px;color:#9da9bf;margin-bottom:8px}.segment textarea{width:100%;min-height:68px}.segment select{max-width:130px}.status{padding:10px 14px;border-radius:10px;background:#24354c;color:#d3e2f7}.notice{color:#f7c97d}.badge{padding:7px 11px;background:#26374e;border-radius:20px}.muted{color:#aebcd0}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.speaker{display:flex;align-items:center;gap:10px;margin:10px 0}.speaker input{flex:1;min-width:80px}@media(max-width:750px){.split{grid-template-columns:1fr}header{align-items:start;flex-direction:column}}@media print{header,.controls,.notice,button{display:none!important}body{background:white;color:black}.panel{border:0;background:white;color:black}}
+</style></head><body><header><div><div class="logo">◉ MeetingFlow</div><div class="sub">現場會議錄音與逐字稿管理 · v1.00</div></div><span id="state" class="badge">尚未錄音</span></header>
+<main><section class="panel"><h1>會議控制台</h1><p class="muted">筆電與手機皆可使用內建麥克風，請先取得與會者錄音同意。</p><div class="row"><input id="meetingName" type="text" placeholder="會議名稱" value="新會議" style="flex:2"><select id="device" aria-label="音訊輸入裝置"><option value="">預設麥克風</option></select></div><div class="toolbar controls"><button id="start">● 開始錄音</button><button class="red" id="stop" disabled>■ 結束並儲存錄音</button><button class="secondary" id="downloadAudio" disabled>下載錄音</button><button class="secondary" id="exportTxt">匯出逐字稿</button><button class="secondary" id="exportJson">匯出 JSON</button></div><p><strong id="clock">00:00:00</strong>　<span class="status" id="status">等待麥克風授權</span></p><p class="notice">目前是錄音及人工校正可用的第一版。AI 即時轉文字、發言者自動辨識及 Supabase 雲端同步尚未啟用；未接上 AI 服務前不會假裝辨識成功。</p></section>
+<div class="split"><section class="panel"><h2>會議逐字稿</h2><div class="row controls"><button class="secondary" id="add">＋ 新增發言段落</button><span class="sub">可以先手動記錄或校正</span></div><div id="logs" class="log"></div></section><div><section class="panel"><h2>發言者管理</h2><div id="speakers"></div><button class="secondary controls" id="addSpeaker">＋ 新增發言者</button></section><section class="panel"><h2>會後重點</h2><textarea id="summary" style="width:100%;min-height:180px" placeholder="決議、待辦事項、會議摘要……"></textarea><p class="sub">摘要目前由使用者編輯；AI 摘要待後端串接。</p></section></div></div></main>
+<script>
+const $=id=>document.getElementById(id);let recorder,stream,chunks=[],blob=null,begin=0,timer=null;const cacheKey='meetingflow_draft_v1';let data={segments:[],speakers:['發言者 A','發言者 B','發言者 C'],summary:'',name:'新會議'};try{const d=JSON.parse(localStorage.getItem(cacheKey));if(d&&Array.isArray(d.segments)&&Array.isArray(d.speakers))data=d}catch(e){}$('meetingName').value=data.name;$('summary').value=data.summary;function save(){data.name=$('meetingName').value;data.summary=$('summary').value;localStorage.setItem(cacheKey,JSON.stringify(data))}function pad(n){return String(n).padStart(2,'0')}function stamp(seconds){return [Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60].map(pad).join(':')}function elapsed(){return begin?Math.floor((Date.now()-begin)/1000):0}function render(){const sp=$('speakers');sp.replaceChildren();data.speakers.forEach((s,i)=>{const r=document.createElement('div');r.className='speaker';const label=document.createElement('span');label.textContent=String.fromCharCode(65+i);const inp=document.createElement('input');inp.value=s;inp.setAttribute('aria-label','發言者 '+(i+1));inp.oninput=()=>{data.speakers[i]=inp.value;save();renderSegments()};r.append(label,inp);sp.append(r)});renderSegments()}function renderSegments(){const root=$('logs');root.replaceChildren();if(!data.segments.length){let p=document.createElement('p');p.className='muted';p.textContent='還沒有發言紀錄。可新增段落；AI 模組接入後將自動新增。';root.append(p)}data.segments.forEach((s,i)=>{const c=document.createElement('div');c.className='segment';const meta=document.createElement('div');meta.className='meta';meta.textContent=s.time;const row=document.createElement('div');row.className='row';const choice=document.createElement('select');data.speakers.forEach((name,j)=>{const o=document.createElement('option');o.value=j;o.textContent=name;choice.append(o)});choice.value=s.speaker;choice.onchange=()=>{s.speaker=Number(choice.value);save()};const del=document.createElement('button');del.className='secondary';del.textContent='刪除';del.onclick=()=>{data.segments.splice(i,1);save();renderSegments()};row.append(choice,del);const t=document.createElement('textarea');t.value=s.text;t.placeholder='發言內容';t.oninput=()=>{s.text=t.value;save()};c.append(meta,row,t);root.append(c)})}function addSegment(){data.segments.push({time:stamp(elapsed()),speaker:0,text:''});save();renderSegments();$('logs').scrollTop=$('logs').scrollHeight}
+$('add').onclick=addSegment;$('addSpeaker').onclick=()=>{data.speakers.push('發言者 '+String.fromCharCode(65+data.speakers.length));save();render()};$('meetingName').oninput=save;$('summary').oninput=save;async function devices(){try{const ds=await navigator.mediaDevices.enumerateDevices();$('device').replaceChildren();const def=document.createElement('option');def.value='';def.textContent='預設麥克風';$('device').append(def);ds.filter(x=>x.kind==='audioinput').forEach(x=>{const o=document.createElement('option');o.value=x.deviceId;o.textContent=x.label||'麥克風';$('device').append(o)})}catch(e){}}if(navigator.mediaDevices)devices();
+$('start').onclick=async()=>{try{if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder)throw Error('此瀏覽器不支援錄音 API');stream=await navigator.mediaDevices.getUserMedia({audio:$('device').value?{deviceId:{exact:$('device').value},echoCancellation:true,noiseSuppression:true}: {echoCancellation:true,noiseSuppression:true}});const type=['audio/webm;codecs=opus','audio/mp4','audio/webm'].find(x=>MediaRecorder.isTypeSupported(x));chunks=[];blob=null;recorder=new MediaRecorder(stream,type?{mimeType:type}:{});recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};recorder.onstop=()=>{blob=new Blob(chunks,{type:recorder.mimeType||'audio/webm'});$('downloadAudio').disabled=false;stream.getTracks().forEach(t=>t.stop());$('status').textContent='錄音已保存在本次瀏覽器工作階段，請下載備份';$('state').textContent='已結束';clearInterval(timer)};recorder.start(1000);begin=Date.now();$('start').disabled=true;$('stop').disabled=false;$('state').textContent='● 錄音中';$('status').textContent='正在錄製現場聲音';timer=setInterval(()=>$('clock').textContent=stamp(elapsed()),500);await devices()}catch(e){$('status').textContent='無法錄音：'+e.message;stream?.getTracks().forEach(t=>t.stop())}};
+$('stop').onclick=()=>{if(recorder?.state==='recording'){recorder.stop();$('stop').disabled=true;$('start').disabled=false;save()}};
+function download(b,filename){const a=document.createElement('a');const u=URL.createObjectURL(b);a.href=u;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(u),2000)}function safeName(){return ($('meetingName').value||'會議').replace(/[\\/:*?"<>|]/g,'_').slice(0,60)}$('downloadAudio').onclick=()=>{if(blob)download(blob,safeName()+'.'+(blob.type.includes('mp4')?'m4a':'webm'))};$('exportTxt').onclick=()=>{let s=$('meetingName').value+'\n\n'+data.segments.map(x=>'['+x.time+'] '+(data.speakers[x.speaker]||'未知')+'：'+x.text).join('\n')+'\n\n會後重點\n'+$('summary').value;download(new Blob([s],{type:'text/plain;charset=utf-8'}),safeName()+'.txt')};$('exportJson').onclick=()=>{save();download(new Blob([JSON.stringify({...data,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}),safeName()+'.json')};window.addEventListener('beforeunload',e=>{if(recorder?.state==='recording'){e.preventDefault();e.returnValue=''}});render();
+</script></body></html>
