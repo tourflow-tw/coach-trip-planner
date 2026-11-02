@@ -14,7 +14,7 @@ const Cloud=(()=>{
  api.start=async()=>{
  $('#sync').onclick=()=>load({force:true});$('#openSyncLink').onclick=()=>{let k='';try{k=new URLSearchParams(new URL($('#syncLinkInput').value).hash.slice(1)).get('sync')||''}catch{}if(!/^[0-9a-f]{64}$/.test(k)){state('請貼上完整的專屬同步網址，包含 #sync= 後面的內容。');return}useKey(k)};
  $('#copyLink').onclick=async()=>{if(!key)return state('請先開啟專屬同步網址。');try{await navigator.clipboard.writeText(location.href);state('✓ 專屬同步網址已複製，可在你的另一台裝置開啟。')}catch{state('請從網址列複製完整網址，包含 #sync= 後面的內容。')}};
- window.addEventListener('focus',()=>load());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load()});setInterval(()=>{if(document.visibilityState==='visible')load()},15000);
+ window.addEventListener('hashchange',()=>{const next=new URLSearchParams(location.hash.slice(1)).get('sync')||'';if(next===key)return;if(/^[0-9a-f]{64}$/.test(next)&&!busy&&!loading&&!document.querySelector('dialog[open]')){useKey(next)}else{if(key)history.replaceState(null,'',location.pathname+location.search+'#sync='+key);state('請先完成目前編輯，再開啟完整專屬同步網址。')}});window.addEventListener('focus',()=>load());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load()});setInterval(()=>{if(document.visibilityState==='visible')load()},15000);
  let k=new URLSearchParams(location.hash.slice(1)).get('sync')||'';if(!k)try{k=localStorage.getItem(KEY)||''}catch{}
  if(/^[0-9a-f]{64}$/.test(k))await useKey(k);else{$('#syncLinkPanel').classList.remove('hidden');state('請使用你的專屬同步網址開啟。無需登入。')}
  };
