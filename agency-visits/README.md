@@ -1,35 +1,29 @@
-# 同業拜訪簿 — GitHub Pages + Supabase
+# 同業拜訪簿 — 免登入 Supabase 同步版
 
-正式入口： https://tourflow-tw.github.io/coach-trip-planner/agency-visits/
+一般入口： https://tourflow-tw.github.io/coach-trip-planner/agency-visits/
 
-前端為純靜態 HTML/JS；使用工作專用 Supabase 專案的 Email Auth 與獨立的 `public.agency_visit_books` 表。每個帳號只可讀寫自己的資料，未登入無法讀取。前端僅含 publishable key。
+使用者請使用對話中提供的「專屬同步網址」。網址的 `#sync=…` 是 256-bit 隨機存取鑰匙；手機、電腦開啟同一完整網址即共用同一份資料，不需註冊或登入。持有完整網址者可讀寫，請勿公開轉傳。複製同步網址按鈕可搬到另一台自己的裝置。
 
-## 使用方式
+## 同步方式
 
-1. 首次使用點「第一次使用？註冊」，填寫信箱與至少 8 字元密碼。
-2. 在信箱確認驗證信，回到拜訪簿登入。如果驗證信跳轉到其他頁面失敗，仍可回此頁登入；也能複製原始確認連結，使用登入頁下方「貼上確認連結」驗證。
-3. 手機與電腦使用同一信箱登入，新增／修改完成即儲存雲端。開啟頁面、切回頁面與每 60 秒讀取最新資料；編輯視窗開啟時不自動重讀。也可按「重新同步」。
-4. 原 Sites 版本的資料不會自動轉移。請先在原版下載 JSON 備份，再於新版登入後按「匯入／還原」。匯入 JSON 會提示取代目前名單；CSV 則追加並略過同名稱與地址。
-5. 網路失敗或版本衝突時不會關閉表單。衝突時先保留未儲存文字／匯出現有名單，關閉表單並重新同步後再編輯。沒有離線寫入佇列。
+- 前端只呼叫 `agency-visit-sync` Edge Function，服務驗證同步鑰匙後存取 `public.agency_visit_sync`。
+- 伺服器僅保存鑰匙的 SHA-256 hash。鑰匙不在 GitHub 原始碼；service_role 僅使用 Edge Function 內建環境變數，不回傳前端。
+- 資料表啟用 RLS，匿名與 authenticated 都無直接讀寫權；每次讀寫均由 Edge Function 驗證鑰匙。
+- 儲存使用 revision 比對，在資料庫 PATCH 條件同時檢查版本，攔截其他裝置造成的舊版本覆寫。
+- 儲存後立即寫入 Supabase；每 15 秒、切回頁面或按「重新同步」會讀取最新資料。編輯視窗開啟期間不自動讀取，避免蓋掉輸入。
+- 網路失敗、無效網址或版本衝突不會自動覆寫雲端或關閉編輯表單。請保留輸入內容，重新同步後再修改。沒有離線寫入佇列。
+- 瀏覽器僅記住同步網址鑰匙，名單以 Supabase 為準。清除瀏覽器資料後，仍可透過原本完整網址取回名單。
 
-## 區域
+## 功能與區域
 
-松江路以東、南京東路以北的整個右上方，另包含松江路單號及南京東路單號。沒有另外設定東、北邊界。區域由使用者建檔標記，沒有自動地址定位或完整旅行社名單。
+旅行社名單、聯絡人、拜訪紀錄、今日待跑、下次追蹤、搜尋、狀態／區域篩選、地圖連結、CSV 匯出及 JSON 備份／還原。
 
-## 資料設計與限制
+區域為松江路以東、南京東路以北整個右上方，另含兩條路單號。區域由使用者標記，未自動定位地址、未預載實際旅行社。
 
-- 每個使用者一筆 JSON 名單，包含旅行社及拜訪紀錄。單筆最大 4,000,000 bytes；適合個人同業拜訪管理。大量資料時應拆分逐筆資料表。
-- `save_agency_visit_book` 是 security invoker RPC，在同一交易中檢查 revision 後儲存；舊版本寫入回傳 VERSION_CONFLICT。匯入也使用同一原子操作。
-- SQL 定義：`../supabase/agency-visits.sql`。已在工作專案執行；不要重複執行 CREATE。
-- Supabase JS 以官方 npm 套件 2.57.4 UMD 檔固定版本，與靜態頁一同部署。來源： https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js 。套件採 MIT 授權。
-- GitHub 只保存程式碼；名單、聯絡人、拜訪紀錄均不寫入 GitHub。
+原 Sites 本機版資料請先下載 JSON，再在新版匯入。舊帳號版資料表保留原本權限，未改為匿名開放。
 
-## 驗證
+## 容量與維護
 
-`node --check agency-visits/app.js`
+每個同步簿一筆 JSON，最多約 3.9 MB、10,000 間，適合個人同業管理。需要大量資料時可再拆分逐筆資料表。更換鑰匙需在伺服器更新 hash 並另提供新連結；舊鑰匙會失效。
 
-`node --check agency-visits/cloud.js`
-
-`node tests/agency-cloud.test.cjs`
-
-另已於遠端資料庫以交易測試首次新增、更新、版本衝突、不可更換擁有者及跨帳號隔離；測試資料 rollback。Supabase security advisors 無警告。實際寄信、使用者註冊與跨裝置登入仍需由使用者完成。
+Schema: `../supabase/agency-visits-link.sql`。Edge Function: `../supabase/functions/agency-visit-sync/index.ts`。Function 使用 `verify_jwt=false` 並自行驗證每次請求的能力鑰匙；不得移除鑰匙檢查。

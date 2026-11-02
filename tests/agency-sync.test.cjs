@@ -1,0 +1,10 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+(async()=>{
+ let remote={agencies:[],revision:0,updated_at:new Date().toISOString()};
+ const code=fs.readFileSync('agency-visits/sync.js','utf8')+';this.store=Cloud;';
+ function device(){const elements=new Map();function el(s){if(!elements.has(s))elements.set(s,{value:'',textContent:'',classList:{add(){},remove(){}}});return elements.get(s)}let captured;
+ const context=vm.createContext({window:{addEventListener(){}},document:{querySelector:s=>s==='dialog[open]'?null:el(s),addEventListener(){},visibilityState:'visible'},location:{hash:'#sync='+'a'.repeat(64),pathname:'/agency-visits/',search:''},history:{replaceState(){}},localStorage:{setItem(){}},URLSearchParams,URL,Date,Error,AbortSignal,navigator:{},setInterval(){},fetch:async(_url,options)=>{const b=JSON.parse(options.body);assert.equal(b.key,'a'.repeat(64));if(b.op==='read')return{ok:true,json:async()=>structuredClone(remote)};if(b.expectedRevision!==remote.revision)return{ok:false,json:async()=>({error:'VERSION_CONFLICT'})};remote={agencies:b.agencies,revision:remote.revision+1,updated_at:new Date().toISOString()};return{ok:true,json:async()=>({revision:remote.revision,updated_at:remote.updated_at})}}});vm.runInContext(code,context);context.store.onData=rows=>captured=rows;return{store:context.store,el,get captured(){return captured}}}
+ const a=device(),b=device();await a.store.start();await b.store.start();assert.equal(a.store.ready,true);assert.equal(b.store.ready,true);
+ const row={id:'one',name:'測試旅行社',logs:[]};await a.store.save([row]);await b.el('#sync').onclick();assert.equal(b.captured[0].name,row.name);
+ await b.store.save([{...row,note:'另一裝置的紀錄'}]);await assert.rejects(a.store.save([row]),/另一個裝置已更新/);assert.equal(remote.agencies[0].note,'另一裝置的紀錄');await a.el('#sync').onclick();assert.equal(a.captured[0].note,'另一裝置的紀錄');console.log('PASS: no-login devices share data, read updates, block stale overwrite');
+})().catch(e=>{console.error(e);process.exitCode=1});

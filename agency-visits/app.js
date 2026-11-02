@@ -1,6 +1,6 @@
 
 const uid=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');const $=s=>document.querySelector(s),KEY='agency-field-notes-v1',statuses=['尚未拜訪','已拜訪','待追蹤','已有合作','暫不合作'],regions=['右上方區域','松江路單號','南京東路單號'];let agencies=[],view='all',editing=null,selected=null;const today=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei'}).format(new Date()),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function toast(t){$('#toast').textContent=t;$('#toast').classList.remove('hidden');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>$('#toast').classList.add('hidden'),3500)}async function save(next){
- if(!Cloud.ready||Cloud.busy){toast('請先登入並完成同步。');return false}
+ if(!Cloud.ready||Cloud.busy){toast('請先完成雲端同步。');return false}
  try{await Cloud.save(next);agencies=next;render();return true}
  catch(e){toast(e.message);return false}
 }
@@ -17,5 +17,4 @@ function normalize(a){if(!a||typeof a.name!=='string'||!a.name.trim())throw Erro
 $('#restore').onclick=()=>{$('#file').value='';$('#file').click()};$('#file').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{if(f.size>10000000)throw Error('檔案請小於 10 MB');let text=(await f.text()).replace(/^\uFEFF/,''),rows,replace=false;if(f.name.toLowerCase().endsWith('.csv')){let r=parseCSV(text),header=r.shift()||[];if(!header.includes('名稱'))throw Error('CSV 須有「名稱」欄，可先匯出 CSV 取得欄位格式');let keys=['name','address','region','status','contact','phone','next','note'];rows=r.map(row=>Object.fromEntries(cols.map((col,i)=>[keys[i],row[header.indexOf(col)]||''])))}else{let obj=JSON.parse(text);rows=Array.isArray(obj)?obj:obj.agencies;replace=true}if(!Array.isArray(rows))throw Error('找不到有效名單');let incoming=rows.map(normalize);if(!incoming.length)throw Error('檔案沒有名單');if(!confirm(replace?`將以備份中的 ${incoming.length} 家取代目前 ${agencies.length} 家，確定還原？`:`將新增 ${incoming.length} 家；相同名稱與地址將略過。確定匯入？`))return;let next=replace?incoming:[...agencies];if(!replace)for(let a of incoming)if(!next.some(b=>b.name===a.name&&b.address===a.address))next.push(a);if(await save(next))toast('匯入完成')}catch(err){toast('匯入失敗：'+err.message)}};render();
 
 Cloud.onData=rows=>{agencies=rows;render()};
-Cloud.onBeforeSignout=()=>{agencies=[];render();document.querySelectorAll('dialog[open]').forEach(d=>d.close())};
 Cloud.start();
