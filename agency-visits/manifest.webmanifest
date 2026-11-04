@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "同業拜訪簿",
+  "short_name": "同業拜訪",
+  "description": "同棟由上往下的拜訪排程、拜訪紀錄與對接人名片",
+  "lang": "zh-TW",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f5ef",
+  "theme_color": "#173f38",
+  "icons": [
+    {"src":"icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}
