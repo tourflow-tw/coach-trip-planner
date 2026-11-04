@@ -1,99 +1,19 @@
-
-const uid=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');const $=s=>document.querySelector(s),KEY='agency-field-notes-v1',statuses=['尚未拜訪','已拜訪','待追蹤','已有合作','暫不合作'],regions=['右上方區域','松江路單號','南京東路單號'];let agencies=[],view='route',editing=null,selected=null,typeFilter='';const today=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei'}).format(new Date()),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function toast(t){$('#toast').textContent=t;$('#toast').classList.remove('hidden');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>$('#toast').classList.add('hidden'),3500)}async function save(next){
- if(!Cloud.ready||Cloud.busy){toast('正在連接 Supabase，請稍候。');return false}
- try{await Cloud.save(next);agencies=next;render();return true}
- catch(e){toast(e.message);return false}
-}
-const statusOf=a=>a.status;
-const due=a=>!a.routeExcluded&&((a.today&&(!a.planDate||a.planDate===today()))||!!(a.next&&a.next<=today())),hasVisit=a=>a.status!=='尚未拜訪'&&(a.logs.length>0||['已拜訪','待追蹤','已有合作'].includes(a.status));$('#dateLabel').textContent=new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',month:'long',day:'numeric',weekday:'long'}).format(new Date());
-const agencyTypes=['甲種','乙種','綜合'];
-function categoryOf(a){return [...agencyTypes,'未分類'].includes(a.category)?a.category:(String(a.note||'').match(/旅行業類別[：:]\s*(甲種|乙種|綜合)/)?.[1]||'未分類')}
-function roadOf(a){const text=String(a.address||'').normalize('NFKC').replace(/\s/g,'').replace(/^\d{3,6}/,'').replace(/^[臺台]北市/,'').replace(/^[^區]{1,6}區/,'');return text.match(/^([^0-9號巷弄]+?(?:路|街|大道))/)?.[1]||'未辨識路名'}
-function renderCategories(){
- const roads=new Map();for(const a of agencies){const road=roadOf(a);roads.set(road,(roads.get(road)||0)+1)}
- const roadSelect=$('#roadFilter'),previous=roadSelect.value;
- const choices=[...roads].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'zh-TW'));
- const options='<option value="">全部路名 · '+agencies.length+' 家</option>'+choices.map(([road,n])=>`<option value="${esc(road)}">${esc(road)} · ${n} 家</option>`).join('');
- if(roadSelect.innerHTML!==options){roadSelect.innerHTML=options;roadSelect.value=roads.has(previous)?previous:''}
- const counts=new Map();for(const a of agencies){const type=categoryOf(a);counts.set(type,(counts.get(type)||0)+1)}
- const types=['',...agencyTypes,...(counts.has('未分類')?['未分類']:[])];
- if(!types.includes(typeFilter))typeFilter='';
- const buttons=types.map(type=>`<button type="button" class="typeChip ${type===typeFilter?'active':''}" data-type="${esc(type)}" aria-pressed="${type===typeFilter}">${type||'全部'}<span>${type?counts.get(type)||0:agencies.length}</span></button>`).join('');
- if($('#typeFilters').innerHTML!==buttons)$('#typeFilters').innerHTML=buttons;
-}
-function render(){renderCategories();renderPlannerOptions();let q=$('#search').value.trim().toLowerCase(),sf=$('#statusFilter').value,rf=$('#regionFilter').value,road=$('#roadFilter').value;$('#total').textContent=agencies.length;$('#unvisited').textContent=agencies.filter(a=>statusOf(a)==='尚未拜訪').length;$('#visited').textContent=agencies.filter(hasVisit).length;$('#todayCount').textContent=agencies.filter(due).length;let rows=agencies.filter(a=>(view==='route'&&a.planDate===today()&&!a.routeExcluded||view==='excluded'&&a.routeExcluded||view==='all'||view==='today'&&due(a)||view==='follow'&&statusOf(a)==='待追蹤'||view==='visited'&&hasVisit(a))&&(!sf||statusOf(a)===sf)&&(!rf||a.region===rf)&&(!road||roadOf(a)===road)&&(!typeFilter||categoryOf(a)===typeFilter)&&[a.name,a.address,a.contact,a.phone,a.note,categoryOf(a),roadOf(a),...contactsOf(a).flatMap(c=>[c.name,c.title,c.phone,c.mobile,c.email,c.line,c.note])].some(x=>String(x).toLowerCase().includes(q))).sort((a,b)=>view==='route'?(a.planOrder||0)-(b.planOrder||0):(b.today-a.today)||(a.next||'9999').localeCompare(b.next||'9999')||a.name.localeCompare(b.name,'zh-TW'));$('#listTitle').textContent={route:'今日拜訪順序 · 同棟由上往下',excluded:'不用再跑的同業',all:'旅行社名單',today:'今日待跑・含逾期追蹤',follow:'等待下一次聯繫',visited:'已拜訪的同業'}[view];$('#resultCount').textContent=`共 ${rows.length} 家`;let currentBuilding='';$('#list').innerHTML=rows.length?'<div class="cards">'+rows.map(a=>{let section='';const info=RoutePlanner.address(a);if(view==='route'&&currentBuilding!==info.building){currentBuilding=info.building;section=`<div class="buildingHead">${esc(info.building)}<small>同棟由高樓往下走</small></div>`}return section+`<article class="card"><div class="cardTop"><h3>${view==='route'?`<span class="stepNumber">${Number(a.planOrder)||''}</span>`:''}${esc(a.name)}</h3><span class="badge ${statusOf(a)==='待追蹤'?'follow':hasVisit(a)?'done':''}">${esc(statusOf(a))}</span></div><div class="classification"><span>${esc(categoryOf(a))}</span><span>${esc(roadOf(a))}</span>${view==='route'?`<span>${esc(RoutePlanner.address(a).label)}</span>`:''}${a.routeExcluded?'<span>不用再跑</span>':''}</div><p class="address">${esc(a.address||'尚未填寫地址')}</p><p class="meta">${esc(a.region)} · ${esc(a.contact||'尚無聯絡人')}</p><p class="meta ${a.next&&a.next<=today()?'due':''}">${a.next?'下次追蹤 '+esc(a.next):'尚未安排追蹤'}${a.today?' · 今日待跑':''}</p><div class="cardActions"><button class="small primary" data-detail="${a.id}">拜訪紀錄${a.logs.length?' · '+a.logs.length:''}</button><button class="small" data-today="${a.id}" ${a.routeExcluded?'disabled':''}>${a.today?'移出今日':'排入今日'}</button>${a.address?`<a class="btn small" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(a.address+' '+a.name)}" target="_blank" rel="noopener">地圖 ↗</a>`:''}</div></article>`}).join('')+'</div>':`<div class="empty"><div class="icon">↗</div><h2>${view==='route'?'尚未安排今日拜訪':agencies.length?'這裡還沒有符合的名單':'從第一間同業開始。'}</h2><p>${view==='route'?'選擇路名後，按上方「產生今日順序」。':agencies.length?'試試調整篩選條件，或把預計拜訪的旅行社排入今日。':'新增旅行社，記下窗口與下一步。每次出門前，都知道今天要去哪裡。'}</p><button class="primary" id="emptyAdd">＋ 新增旅行社</button></div>`;$('#emptyAdd')?.addEventListener('click',()=>openEdit());}
-function openEdit(id=null){editing=id;let a=agencies.find(x=>x.id===id),f=$('#agencyForm');f.reset();$('#editTitle').textContent=id?'編輯旅行社':'新增旅行社';if(a)for(let k of ['name','address','region','status','contact','phone','next','note'])f.elements[k].value=a[k]||'';f.elements.status.value=a?statusOf(a):'尚未拜訪';f.elements.category.value=a?categoryOf(a):'未分類';f.elements.today.checked=!!a?.today;f.elements.routeExcluded.checked=!!a?.routeExcluded;f.elements.routeBuilding.value=a?.routeBuilding||'';f.elements.routeFloor.value=a?.routeFloor??'';$('#editDialog').showModal()}
-let contactEditing=null,contactPhoto='';
-const contactsOf=a=>Array.isArray(a.contacts)?a.contacts:[];
-const safePhoto=photo=>typeof photo==='string'&&photo.length<=180000&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(photo)?photo:'';
-function detail(id,{resetForm=true}={}){
- selected=id;const a=agencies.find(x=>x.id===id);if(!a)return;
- $('#detailTitle').textContent=a.name;$('#routeToggle').textContent=a.routeExcluded?'重新加入排程':'這間不用再跑';$('#routeToggle').setAttribute('aria-pressed',String(!!a.routeExcluded));
- $('#detailInfo').innerHTML=`<p>${esc(a.address||'尚無地址')}</p><p class="scopeText">${esc(categoryOf(a))}</p>`;
- $('#logs').innerHTML=a.logs.length?a.logs.map((l,index)=>({...l,index})).sort((x,y)=>y.date.localeCompare(x.date)||y.index-x.index).map(l=>`<div class="log"><div class="recordHead"><small>${esc(l.date)} · ${esc(l.status)}</small><button type="button" class="small danger" data-delete-log="${l.index}">刪除紀錄</button></div><p>${esc(l.text)}</p></div>`).join(''):'<p class="scopeText" style="margin:14px 0">尚無拜訪紀錄</p>';
- $('#contacts').innerHTML=contactsOf(a).length?contactsOf(a).map((c,index)=>`<article class="contactCard">${safePhoto(c.photo)?`<a href="${safePhoto(c.photo)}" download="同業名片.jpg" class="cardPhotoLink"><img class="cardPhoto" src="${safePhoto(c.photo)}" alt="${esc(c.name)}的名片"></a>`:''}<div class="recordHead"><h4>${esc(c.name)}</h4><div><button type="button" class="small" data-edit-contact="${index}">編輯</button><button type="button" class="small danger" data-delete-contact="${index}">刪除</button></div></div>${c.title?`<p class="scopeText">${esc(c.title)}</p>`:''}${[['電話',c.phone],['手機',c.mobile],['Email',c.email],['LINE',c.line],['備註',c.note]].filter(([,v])=>v).map(([label,value])=>`<p class="contactLine"><span>${label}</span>${esc(value)}</p>`).join('')}</article>`).join(''):'<p class="scopeText">尚無同業名片</p>';
- if(resetForm){const f=$('#logForm');f.reset();f.elements.date.value=today();f.elements.next.value=a.next||'';f.elements.noRevisit.checked=!!a.routeExcluded}
- if(!$('#detailDialog').open)$('#detailDialog').showModal();
-}
-function openContact(index=null){
- const a=agencies.find(x=>x.id===selected);if(!a)return;
- contactEditing=index;const c=index===null?null:contactsOf(a)[index],f=$('#contactForm');f.reset();
- for(const k of ['name','title','phone','mobile','email','line','note'])f.elements[k].value=c?.[k]||'';
- contactPhoto=safePhoto(c?.photo);renderContactPhoto();$('#contactEditTitle').textContent=c?'編輯同業名片':'新增同業名片';$('#contactDialog').showModal();
-}
-function renderContactPhoto(){const img=$('#contactPhotoPreview');img.classList.toggle('hidden',!contactPhoto);img.src=contactPhoto||'';$('#removePhoto').classList.toggle('hidden',!contactPhoto)}
-async function compressCard(file){
- if(!file.type.startsWith('image/'))throw Error('請選擇圖片');
- if(file.size>20000000)throw Error('名片圖片請小於 20 MB');
- const image=await createImageBitmap(file);try{
- const canvas=document.createElement('canvas'),scale=Math.min(1,1200/Math.max(image.width,image.height));canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);
- for(const quality of [.82,.65,.48,.32,.2]){const data=canvas.toDataURL('image/jpeg',quality);if(data.length<=180000)return data}
- throw Error('圖片過大，請裁切名片後再試');
- }finally{image.close()}
-}
-$('#addContact').onclick=()=>openContact();
-$('#contactPhoto').onchange=async e=>{const file=e.target.files[0];if(!file)return;$('#contactSave').disabled=true;try{contactPhoto=await compressCard(file);renderContactPhoto()}catch(err){toast(err.message)}finally{$('#contactSave').disabled=false;e.target.value=''}};
-$('#removePhoto').onclick=()=>{contactPhoto='';renderContactPhoto()};
-$('#contactForm').onsubmit=async e=>{
- e.preventDefault();const d=Object.fromEntries(new FormData(e.target));const c={id:uid(),photo:contactPhoto};for(const k of ['name','title','phone','mobile','email','line','note'])c[k]=String(d[k]||'').trim();if(!c.name)return toast('請輸入對接人姓名');
- const next=agencies.map(a=>{if(a.id!==selected)return a;const contacts=[...contactsOf(a)];if(contactEditing===null)contacts.push(c);else{if(!contacts[contactEditing])return a;c.id=contacts[contactEditing].id||c.id;contacts[contactEditing]=c}return {...a,contacts}});
- if(new TextEncoder().encode(JSON.stringify(next)).length>3800000)return toast('名片圖片已超過雲端容量，請先移除部分圖片後再儲存');
- if(await save(next)){$('#contactDialog').close();detail(selected,{resetForm:false});toast('同業名片已儲存')}
-};
-$('#detailDialog').addEventListener('click',async e=>{
- const logButton=e.target.closest('[data-delete-log]'),contactButton=e.target.closest('[data-delete-contact]'),editButton=e.target.closest('[data-edit-contact]');
- if(editButton){openContact(Number(editButton.dataset.editContact));return}
- if(!logButton&&!contactButton)return;
- if(!confirm(logButton?'確定刪除這筆拜訪紀錄？':'確定刪除這張同業名片？'))return;
- const index=Number(logButton?logButton.dataset.deleteLog:contactButton.dataset.deleteContact);
- const next=agencies.map(a=>a.id!==selected?a:logButton?{...a,logs:a.logs.filter((_,i)=>i!==index)}:{...a,contacts:contactsOf(a).filter((_,i)=>i!==index)});
- if(await save(next)){detail(selected,{resetForm:false});toast(logButton?'拜訪紀錄已刪除':'同業名片已刪除')}
-});
-$('#agencyForm').onsubmit=async e=>{e.preventDefault();let f=e.target,d=Object.fromEntries(new FormData(f));d.name=d.name.trim();if(!d.name){toast('請輸入旅行社名稱');return}let old=agencies.find(a=>a.id===editing);let a={...old,...d,routeExcluded:f.elements.routeExcluded.checked,routeBuilding:d.routeBuilding.trim(),routeFloor:d.routeFloor===''?null:Number(d.routeFloor),today:f.elements.routeExcluded.checked?false:f.elements.today.checked,id:old?.id||uid(),logs:old?.logs||[]};if(await save(old?agencies.map(x=>x.id===editing?a:x):[...agencies,a])){$('#editDialog').close();toast('旅行社資料已儲存')}};
-$('#logForm').onsubmit=async e=>{e.preventDefault();let d=Object.fromEntries(new FormData(e.target));d.text=d.text.trim();if(!d.text){toast('請填寫洽談內容');return}if(await save(agencies.map(a=>a.id===selected?{...a,routeExcluded:e.target.elements.noRevisit.checked,status:d.status,next:d.next,today:false,logs:[...a.logs,{date:d.date,text:d.text,status:d.status}]}:a))){detail(selected);toast('拜訪紀錄已儲存')}};
-$('#add').onclick=()=>openEdit();document.addEventListener('click',async e=>{let c=e.target.closest('[data-close]');if(c)$('#'+c.dataset.close).close();let d=e.target.closest('[data-detail]');if(d)detail(d.dataset.detail);let t=e.target.closest('[data-today]');if(t&&!agencies.find(a=>a.id===t.dataset.today)?.routeExcluded)await save(agencies.map(a=>a.id===t.dataset.today?{...a,today:!a.today,planDate:a.today?'':a.planDate,planOrder:a.today?0:a.planOrder}:a));let n=e.target.closest('[data-view]');if(n){view=n.dataset.view;document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('active',x===n));render()}});['search','statusFilter','regionFilter','roadFilter'].forEach(id=>$('#'+id).addEventListener(id==='search'?'input':'change',render));$('#typeFilters').onclick=e=>{const button=e.target.closest('[data-type]');if(button){typeFilter=button.dataset.type;render()}};$('#clearFilters').onclick=()=>{for(const id of ['search','statusFilter','regionFilter','roadFilter'])$('#'+id).value='';typeFilter='';render()};$('#detailEdit').onclick=()=>{$('#detailDialog').close();openEdit(selected)};$('#delete').onclick=async()=>{if(confirm('確定刪除這間旅行社及所有拜訪紀錄？建議先備份。')&&await save(agencies.filter(a=>a.id!==selected)))$('#detailDialog').close()};
-function download(name,content,type){let u=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}$('#backup').onclick=()=>download('同業拜訪簿-'+today()+'.json',JSON.stringify({version:1,agencies},null,2),'application/json');const cols=['名稱','地址','區域','狀態','聯絡人','電話','下次追蹤','備註','旅行業種類','路名'];$('#csv').onclick=()=>{let lines=[cols,...agencies.map(a=>[a.name,a.address,a.region,statusOf(a),a.contact,a.phone,a.next,a.note,categoryOf(a),roadOf(a)])];download('旅行社名單-'+today()+'.csv','\uFEFF'+lines.map(r=>r.map(v=>'"'+String(v??'').replace(/^[=+@\-]/,"'$&").replace(/"/g,'""')+'"').join(',')).join('\r\n'),'text/csv;charset=utf-8');toast('CSV 含名單資料；完整拜訪紀錄與同業名片請使用 JSON 備份')};
-function parseCSV(text){let rows=[],row=[],cell='',quoted=false;for(let i=0;i<text.length;i++){let c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++}else quoted=!quoted}else if(c===','&&!quoted){row.push(cell);cell=''}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);if(row.some(Boolean))rows.push(row);row=[];cell=''}else cell+=c}if(quoted)throw Error('CSV 引號未關閉');row.push(cell);if(row.some(Boolean))rows.push(row);return rows}
-function normalize(a){if(!a||typeof a.name!=='string'||!a.name.trim())throw Error('每筆資料都必須有名稱');let o={id:uid(),today:a.today===true,logs:[]};for(let k of ['name','address','region','status','contact','phone','next','note'])o[k]=String(a[k]??'');o.routeExcluded=a.routeExcluded===true;o.routeBuilding=String(a.routeBuilding||'');o.routeFloor=a.routeFloor??null;o.planDate=String(a.planDate||'');o.planOrder=Number(a.planOrder)||0;o.name=o.name.trim();o.category=categoryOf(a);if(!statuses.includes(o.status))o.status='尚未拜訪';if(!regions.includes(o.region))o.region=regions[0];if(o.next&&!/^\d{4}-\d{2}-\d{2}$/.test(o.next))throw Error('追蹤日期須為 YYYY-MM-DD');if(a.logs&&!Array.isArray(a.logs))throw Error('拜訪紀錄格式不正確');o.logs=(a.logs||[]).map(l=>{if(!l||typeof l.text!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(l.date))throw Error('拜訪紀錄格式不正確');return{date:l.date,text:l.text,status:statuses.includes(l.status)?l.status:'已拜訪'}});o.contacts=contactsOf(a).map(c=>{if(!c||typeof c.name!=='string'||!c.name.trim())throw Error('同業名片須有姓名');const contact={id:uid(),photo:safePhoto(c.photo)};for(const k of ['name','title','phone','mobile','email','line','note'])contact[k]=String(c[k]||'');return contact});return o}
-$('#restore').onclick=()=>{$('#file').value='';$('#file').click()};$('#file').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{if(f.size>10000000)throw Error('檔案請小於 10 MB');let text=(await f.text()).replace(/^\uFEFF/,''),rows,replace=false;if(f.name.toLowerCase().endsWith('.csv')){let r=parseCSV(text),header=r.shift()||[];if(!header.includes('名稱'))throw Error('CSV 須有「名稱」欄，可先匯出 CSV 取得欄位格式');let keys=['name','address','region','status','contact','phone','next','note','category','road'];rows=r.map(row=>Object.fromEntries(cols.map((col,i)=>[keys[i],row[header.indexOf(col)]||''])))}else{let obj=JSON.parse(text);rows=Array.isArray(obj)?obj:obj.agencies;replace=true}if(!Array.isArray(rows))throw Error('找不到有效名單');let incoming=rows.map(normalize);if(!incoming.length)throw Error('檔案沒有名單');if(!confirm(replace?`將以備份中的 ${incoming.length} 家取代目前 ${agencies.length} 家，確定還原？`:`將新增 ${incoming.length} 家；相同名稱與地址將略過。確定匯入？`))return;let next=replace?incoming:[...agencies];if(!replace)for(let a of incoming)if(!next.some(b=>b.name===a.name&&b.address===a.address))next.push(a);if(await save(next))toast('匯入完成')}catch(err){toast('匯入失敗：'+err.message)}};
-
-Cloud.onData=rows=>{agencies=rows;render()};
-initPlanner();render();Cloud.start();
-
-function renderPlannerOptions(){
- const roads=new Map();for(const a of agencies){if(a.routeExcluded)continue;const road=RoutePlanner.address(a).road;if(road)roads.set(road,(roads.get(road)||0)+1)}
- const select=$('#planRoad'),old=select.value;const options='<option value="">全部路名</option>'+[...roads].sort((a,b)=>b[1]-a[1]).map(([road,n])=>`<option value="${esc(road)}">${esc(road)} · ${n} 家</option>`).join('');if(select.innerHTML!==options){select.innerHTML=options;select.value=roads.has(old)?old:roads.has('松江路')?'松江路':''}
- const start=$('#planStart'),previous=start.value;const buildings=[...new Set(agencies.filter(a=>RoutePlanner.eligible(a,today())).map(a=>RoutePlanner.address(a)).filter(p=>p.valid&&(!select.value||p.road===select.value)).map(p=>p.building))].sort((a,b)=>a.localeCompare(b,'zh-TW',{numeric:true}));
- const choices='<option value="">自動選擇</option>'+buildings.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('');if(start.innerHTML!==choices){start.innerHTML=choices;start.value=buildings.includes(previous)?previous:''}
-}
-function initPlanner(){
- $('#planRoad').onchange=renderPlannerOptions;
- $('#createPlan').onclick=async()=>{
-  if(!Cloud.ready||Cloud.busy)return toast('正在連接 Supabase，請稍候');
-  try{const result=RoutePlanner.plan(agencies,{date:today(),road:$('#planRoad').value,limit:Number($('#planLimit').value),start:$('#planStart').value});if(!result.ids.length)return toast('目前沒有可排程的同業，請調整路名或檢查不用再跑的設定');
-   const order=new Map(result.ids.map((id,i)=>[id,i+1]));const next=agencies.map(a=>order.has(a.id)?{...a,planDate:today(),planOrder:order.get(a.id),today:true}:a.planDate===today()?{...a,planDate:'',planOrder:0,today:false}:a);
-   if(await save(next)){view='route';document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));render();$('#planSummary').textContent=`已安排 ${result.count} 家、${result.groups.length} 棟；同棟一起排入，可能超過目標家數。`;toast('今日順序已同步')}
-  }catch(e){toast(e.message)}
- };
- $('#routeToggle').onclick=async()=>{const a=agencies.find(x=>x.id===selected);if(!a)return;const excluded=!a.routeExcluded;if(await save(agencies.map(x=>x.id===selected?{...x,routeExcluded:excluded,today:excluded?false:x.today}:x))){detail(selected,{resetForm:false});$('#logForm').elements.noRevisit.checked=excluded;toast(excluded?'已設為不用再跑，後續排程會排除':'已重新加入排程')}};
-}
+/* Assembly only. Each screen / feature lives in modules/. */
+import {initCore,toast} from './modules/core.js';
+import {store} from './modules/store.js';
+import {loadGeo} from './modules/geo.js';
+import {initNavigation,renderNavigation} from './modules/navigation.js';
+import {initSchedule,renderSchedule} from './modules/schedule.js';
+import {initList,renderList} from './modules/list.js';
+import {initDetails} from './modules/details.js';
+import {initContacts} from './modules/contacts.js';
+import {initRatings,renderRatings} from './modules/ratings.js';
+import {initExclusions,renderExclusions} from './modules/exclusions.js';
+import {renderTracking} from './modules/tracking.js';
+import {initSettings,renderSettings} from './modules/settings.js';
+import {initMap,renderMap} from './modules/map.js';
+initCore();initNavigation();initSchedule();initList();initDetails();initContacts();initRatings();initExclusions();initSettings();initMap();
+store.subscribe(()=>{renderNavigation();renderSchedule();renderList();renderTracking();renderRatings();renderExclusions();renderSettings();renderMap()});
+window.Cloud.onData=(rows,settings)=>store.hydrate(rows,settings);
+try{await loadGeo()}catch(e){toast(e.message)}
+store.emit();window.Cloud.start();

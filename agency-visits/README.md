@@ -1,29 +1,37 @@
-# 同業拜訪簿 — 免登入 Supabase 同步版
+# 同業拜訪簿 v1.00
 
-一般入口： https://tourflow-tw.github.io/coach-trip-planner/agency-visits/
+GitHub Pages 前端、Supabase 權限網址讀寫；前端不保存名單副本。點右下版本號刷新。
 
-使用者請使用對話中提供的「專屬同步網址」。網址的 `#sync=…` 是 256-bit 隨機存取鑰匙；手機、電腦開啟同一完整網址即共用同一份資料，不需註冊或登入。持有完整網址者可讀寫，請勿公開轉傳。複製同步網址按鈕可搬到另一台自己的裝置。
+## 程式定位
 
-## 同步方式
+| 檔案 | 負責範圍 |
+| --- | --- |
+| app.js | 僅組裝各模組與連接資料更新 |
+| sync.js | Supabase 讀寫、自動更新、版本衝突保護 |
+| modules/navigation.js | 分頁切換 |
+| modules/schedule.js | 今日頁與產生排程 |
+| modules/routing.js | 星等回訪間隔、最近鄰與開放路徑 2-opt |
+| modules/geo.js | 門牌正規化、樓層、座標、距離、同棟分組 |
+| modules/list.js | 名單搜尋、路名／狀態／同棟篩選、家數與分頁 |
+| modules/cards.js | 同棟卡片與星等按鈕 |
+| modules/details.js | 旅行社編輯與拜訪紀錄 |
+| modules/contacts.js | 聯絡人、名片照片與儲存 |
+| modules/ocr.js | Tesseract.js 6.0.1 繁體中文／英文辨識、欄位擷取 |
+| modules/ratings.js | 1–5 星設定及星等頁 |
+| modules/tracking.js | 正在追蹤詢問頁 |
+| modules/exclusions.js | 不用再跑、原因與恢復排程 |
+| modules/settings.js | 中心座標、備份與設定頁 |
+| modules/map.js | Leaflet 1.9.4 地圖側欄及拜訪順序 |
+| modules/store.js | 記憶體狀態、通知與寫入組裝 |
+| modules/core.js | 日期、文字跳脫、版本與基本互動 |
+| pwa.js / sw.js | 安裝與程式檔案快取；不快取 Supabase 回應 |
 
-- 前端只呼叫 `agency-visit-sync` Edge Function，服務驗證同步鑰匙後存取 `public.agency_visit_sync`。
-- 伺服器僅保存鑰匙的 SHA-256 hash。鑰匙不在 GitHub 原始碼；service_role 僅使用 Edge Function 內建環境變數，不回傳前端。
-- 資料表啟用 RLS，匿名與 authenticated 都無直接讀寫權；每次讀寫均由 Edge Function 驗證鑰匙。
-- 儲存使用 revision 比對，在資料庫 PATCH 條件同時檢查版本，攔截其他裝置造成的舊版本覆寫。
-- 儲存後立即寫入 Supabase；每 15 秒、切回頁面或按「重新同步」會讀取最新資料。編輯視窗開啟期間不自動讀取，避免蓋掉輸入。
-- 網路失敗、無效網址或版本衝突不會自動覆寫雲端或關閉編輯表單。請保留輸入內容，重新同步後再修改。沒有離線寫入佇列。
-- 瀏覽器僅記住同步網址鑰匙，名單以 Supabase 為準。清除瀏覽器資料後，仍可透過原本完整網址取回名單。
+## 資料與路線
 
-## 功能與區域
-
-旅行社名單、聯絡人、拜訪紀錄、今日待跑、下次追蹤、搜尋、狀態／區域篩選、地圖連結、CSV 匯出及 JSON 備份／還原。
-
-區域為松江路以東、南京東路以北整個右上方，另含兩條路單號。區域由使用者標記，未自動定位地址、未預載實際旅行社。
-
-原 Sites 本機版資料請先下載 JSON，再在新版匯入。舊帳號版資料表保留原本權限，未改為匿名開放。
-
-## 容量與維護
-
-每個同步簿一筆 JSON，最多約 3.9 MB、10,000 間，適合個人同業管理。需要大量資料時可再拆分逐筆資料表。更換鑰匙需在伺服器更新 hash 並另提供新連結；舊鑰匙會失效。
-
-Schema: `../supabase/agency-visits-link.sql`。Edge Function: `../supabase/functions/agency-visit-sync/index.ts`。Function 使用 `verify_jwt=false` 並自行驗證每次請求的能力鑰匙；不得移除鑰匙檢查。
+- 中心：使用者提供的捷利地址，臺北市中山區民權東路二段9號2樓之4。
+- 公開門牌座標：臺北市民政局 2026-11-02 資料；`address-points.json` 只含需要的公開門牌；北泰國際旅行社使用其官網提供的座標。
+- 路名以最近一個同業門牌到中心的直線距離排序；同棟名單以中心距離排序。
+- 排程先依到期、星等與距離選棟，再以最近鄰及 2-opt 排序。地圖虛線不是步行導航。
+- 回訪間隔：1 星 90 天、2 星 60 天、3 星 30 天、4 星 14 天、5 星 7 天；手動指定日期優先。
+- OCR 在瀏覽器處理圖片，第一次下載語言模型需網路；只在使用者確認後儲存。
+- Supabase `settings` 與名單使用同一 revision 原子儲存，舊客戶端沒有傳 settings 時不覆寫。

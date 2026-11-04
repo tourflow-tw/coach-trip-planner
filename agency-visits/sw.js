@@ -1,15 +1,6 @@
 'use strict';
-const CACHE='agency-visits-shell-v5.1',BASE=new URL('./',self.location.href);
-const FILES=['./','index.html','planner.js?v=5.0','app.js?v=5.1','sync.js?v=3.0','pwa.js?v=5.0','manifest.webmanifest','icon-192.png','icon-512.png'];
-self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES.map(path=>new URL(path,BASE).href))));self.skipWaiting()});
+const CACHE='agency-visits-shell-v1.00',BASE=new URL('./',self.location.href);
+const FILES=['./','index.html','styles.css?v=1.00','app.js?v=1.00','sync.js?v=1.00','pwa.js?v=1.00','manifest.webmanifest','icon-192.png','icon-512.png','address-points.json?v=1.00','vendor/leaflet.js','vendor/leaflet.css','modules/core.js','modules/store.js','modules/geo.js','modules/routing.js','modules/cards.js','modules/list.js','modules/schedule.js','modules/ratings.js','modules/tracking.js','modules/exclusions.js','modules/ocr.js','modules/contacts.js','modules/details.js','modules/map.js','modules/settings.js','modules/navigation.js'];
+self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES.map(path=>new Request(new URL(path,BASE),{cache:'reload'})))));self.skipWaiting()});
 self.addEventListener('activate',event=>event.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('agency-visits-shell-')&&key!==CACHE).map(key=>caches.delete(key)))),self.clients.claim()])));
-self.addEventListener('fetch',event=>{
- const request=event.request,url=new URL(request.url);
- // Never cache Supabase/API responses or other apps on this GitHub Pages origin.
- if(request.method!=='GET'||url.origin!==BASE.origin||!url.pathname.startsWith(BASE.pathname))return;
- if(request.mode==='navigate'){
-  event.respondWith(fetch(request).then(response=>{if(response.ok){const copy=response.clone();event.waitUntil(caches.open(CACHE).then(cache=>cache.put(new URL('./',BASE).href,copy)))}return response}).catch(async()=>await caches.match(new URL('./',BASE).href)||Response.error()));return;
- }
- const allowed=FILES.some(file=>new URL(file,BASE).pathname===url.pathname);if(!allowed)return;
- event.respondWith(fetch(request).then(response=>{if(response.ok){const copy=response.clone();event.waitUntil(caches.open(CACHE).then(cache=>cache.put(request,copy)))}return response}).catch(()=>caches.match(request)));
-});
+self.addEventListener('fetch',event=>{const request=event.request,url=new URL(request.url);if(request.method!=='GET'||url.origin!==BASE.origin||!url.pathname.startsWith(BASE.pathname))return;if(request.mode==='navigate'){event.respondWith(fetch(request,{cache:'no-cache'}).then(response=>{if(response.ok){const copy=response.clone();event.waitUntil(caches.open(CACHE).then(cache=>cache.put(new URL('./',BASE).href,copy)))}return response}).catch(async()=>await caches.match(new URL('./',BASE).href)||Response.error()));return}const allowed=FILES.some(file=>new URL(file,BASE).pathname===url.pathname);if(!allowed)return;event.respondWith(fetch(request).then(response=>{if(response.ok){const copy=response.clone();event.waitUntil(caches.open(CACHE).then(cache=>cache.put(request,copy)))}return response}).catch(()=>caches.match(request)))});

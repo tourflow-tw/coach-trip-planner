@@ -14,14 +14,14 @@ const Cloud=(()=>{
   try{
    const data=await request({op:'read',...(hydrated?{knownRevision:revision}:{})});
    if(data.unchanged===true){if(!hydrated||data.revision!==revision)throw Error('INVALID_RESPONSE')}
-   else{const rows=check(data.agencies);if(!hydrated||revision!==data.revision)api.onData?.(rows);revision=data.revision;hydrated=true}
+   else{const rows=check(data.agencies);if(!hydrated||revision!==data.revision)api.onData?.(rows,data.settings||{});revision=data.revision;hydrated=true}
    ready=true;$('#syncLinkPanel').classList.add('hidden');state('✓ 已連接 Supabase · 資料更新於 '+new Date(data.updated_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}));
   }catch(e){ready=false;state(problem(e));if(e.code==='INVALID_LINK')$('#syncLinkPanel').classList.remove('hidden')}
   finally{loading=false}
  }
- api.save=async rows=>{
+ api.save=async (rows,settings)=>{
   if(!ready||busy||loading)throw Error('正在連接 Supabase，請保留編輯內容並稍候再儲存。');check(rows);busy=true;$('#saveOverlay').classList.remove('hidden');state('正在儲存至 Supabase…');
-  try{const data=await request({op:'save',agencies:rows,expectedRevision:revision});revision=data.revision;state('✓ 已儲存至 Supabase · '+new Date(data.updated_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}))}
+  try{const data=await request({op:'save',agencies:rows,expectedRevision:revision,...(settings===undefined?{}:{settings})});revision=data.revision;state('✓ 已儲存至 Supabase · '+new Date(data.updated_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}))}
   catch(e){ready=false;state(problem(e));throw Error(problem(e))}
   finally{busy=false;$('#saveOverlay').classList.add('hidden')}
  };
@@ -41,3 +41,5 @@ const Cloud=(()=>{
  };
  return api;
 })();
+
+window.Cloud=Cloud;

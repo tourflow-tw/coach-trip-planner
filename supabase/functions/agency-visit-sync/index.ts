@@ -12,6 +12,7 @@ export async function handler(req:Request):Promise<Response>{
   if(!body||typeof body.key!=='string'||!/^[0-9a-f]{64}$/.test(body.key))return reply({error:'INVALID_LINK'},403);
   if(!['read','save'].includes(body.op))return reply({error:'INVALID_REQUEST'},400);
   if(body.op==='save'){
+   if(body.settings!==undefined&&(!body.settings||typeof body.settings!=='object'||Array.isArray(body.settings)||new TextEncoder().encode(JSON.stringify(body.settings)).length>45000))return reply({error:'INVALID_DATA'},400);
    const a=body.agencies;
    if(!Array.isArray(a)||a.length>10000||new TextEncoder().encode(JSON.stringify(a)).length>3900000||!Number.isInteger(body.expectedRevision)||body.expectedRevision<0)return reply({error:'INVALID_DATA'},400);
    const ids=new Set();
@@ -32,14 +33,14 @@ export async function handler(req:Request):Promise<Response>{
    const found=await metadata.json();if(!found.length)return reply({error:'INVALID_LINK'},403);
    if(found[0].revision===body.knownRevision)return reply({...found[0],unchanged:true});
   }
-  const r=await fetch(endpoint+'&select=agencies,revision,updated_at',{headers:authHeaders,signal:AbortSignal.timeout(15000)});
+  const r=await fetch(endpoint+'&select=agencies,settings,revision,updated_at',{headers:authHeaders,signal:AbortSignal.timeout(15000)});
   if(!r.ok)return reply({error:'DATABASE_UNAVAILABLE'},503);
   const rows=await r.json();if(!rows.length)return reply({error:'INVALID_LINK'},403);
   if(body.op==='read')return reply(rows[0]);
   if(rows[0].revision!==body.expectedRevision)return reply({error:'VERSION_CONFLICT'},409);
   const update=await fetch(endpoint+'&revision=eq.'+body.expectedRevision+'&select=revision,updated_at',{
    method:'PATCH',headers:{...authHeaders,Prefer:'return=representation'},
-   body:JSON.stringify({agencies:body.agencies,revision:body.expectedRevision+1,updated_at:new Date().toISOString()}),signal:AbortSignal.timeout(15000)
+   body:JSON.stringify({agencies:body.agencies,...(body.settings===undefined?{}:{settings:body.settings}),revision:body.expectedRevision+1,updated_at:new Date().toISOString()}),signal:AbortSignal.timeout(15000)
   });
   if(!update.ok)return reply({error:'DATABASE_UNAVAILABLE'},503);
   const saved=await update.json();if(!saved.length)return reply({error:'VERSION_CONFLICT'},409);
