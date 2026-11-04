@@ -1,4 +1,4 @@
-# 同業拜訪簿 v1.00
+# 同業拜訪簿 v1.01
 
 GitHub Pages 前端、Supabase 權限網址讀寫；前端不保存名單副本。點右下版本號刷新。
 
@@ -9,6 +9,7 @@ GitHub Pages 前端、Supabase 權限網址讀寫；前端不保存名單副本�
 | app.js | 僅組裝各模組與連接資料更新 |
 | sync.js | Supabase 讀寫、自動更新、版本衝突保護 |
 | modules/navigation.js | 分頁切換 |
+| modules/selects.js | 自訂可搜尋選單、鍵盤操作與表單值同步 |
 | modules/schedule.js | 今日頁與產生排程 |
 | modules/routing.js | 星等回訪間隔、最近鄰與開放路徑 2-opt |
 | modules/geo.js | 門牌正規化、樓層、座標、距離、同棟分組 |
@@ -35,3 +36,11 @@ GitHub Pages 前端、Supabase 權限網址讀寫；前端不保存名單副本�
 - 回訪間隔：1 星 90 天、2 星 60 天、3 星 30 天、4 星 14 天、5 星 7 天；手動指定日期優先。
 - OCR 在瀏覽器處理圖片，第一次下載語言模型需網路；只在使用者確認後儲存。
 - Supabase `settings` 與名單使用同一 revision 原子儲存，舊客戶端沒有傳 settings 時不覆寫。
+
+## 版本維護
+
+每次發布將 `modules/core.js` 的版本加 0.01，並同步更新 HTML、模組匯入 URL 與 Service Worker 快取版本。右下版本按鈕重新載入頁面。
+
+## 指定第一棟
+
+智慧排程可搜尋並指定第一棟地址，該棟固定排最前；棟內由高樓往下，再接續附近同業。同棟地址合併顯示家數。人工指定可優先於自動回訪日期，但不接受不用再跑或今天已完成的同業。
