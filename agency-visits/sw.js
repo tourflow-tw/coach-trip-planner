@@ -1,6 +1,6 @@
 'use strict';
-const CACHE='agency-visits-shell-v5.0',BASE=new URL('./',self.location.href);
-const FILES=['./','index.html','planner.js?v=5.0','app.js?v=5.0','sync.js?v=2.2','pwa.js?v=5.0','manifest.webmanifest','icon-192.png','icon-512.png'];
+const CACHE='agency-visits-shell-v5.1',BASE=new URL('./',self.location.href);
+const FILES=['./','index.html','planner.js?v=5.0','app.js?v=5.1','sync.js?v=3.0','pwa.js?v=5.0','manifest.webmanifest','icon-192.png','icon-512.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES.map(path=>new URL(path,BASE).href))));self.skipWaiting()});
 self.addEventListener('activate',event=>event.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('agency-visits-shell-')&&key!==CACHE).map(key=>caches.delete(key)))),self.clients.claim()])));
 self.addEventListener('fetch',event=>{

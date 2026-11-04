@@ -1,6 +1,6 @@
 
 const uid=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');const $=s=>document.querySelector(s),KEY='agency-field-notes-v1',statuses=['尚未拜訪','已拜訪','待追蹤','已有合作','暫不合作'],regions=['右上方區域','松江路單號','南京東路單號'];let agencies=[],view='route',editing=null,selected=null,typeFilter='';const today=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei'}).format(new Date()),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function toast(t){$('#toast').textContent=t;$('#toast').classList.remove('hidden');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>$('#toast').classList.add('hidden'),3500)}async function save(next){
- if(!Cloud.ready||Cloud.busy){toast('請先完成雲端同步。');return false}
+ if(!Cloud.ready||Cloud.busy){toast('正在連接 Supabase，請稍候。');return false}
  try{await Cloud.save(next);agencies=next;render();return true}
  catch(e){toast(e.message);return false}
 }
@@ -89,7 +89,7 @@ function renderPlannerOptions(){
 function initPlanner(){
  $('#planRoad').onchange=renderPlannerOptions;
  $('#createPlan').onclick=async()=>{
-  if(!Cloud.ready||Cloud.busy)return toast('請先完成雲端同步');
+  if(!Cloud.ready||Cloud.busy)return toast('正在連接 Supabase，請稍候');
   try{const result=RoutePlanner.plan(agencies,{date:today(),road:$('#planRoad').value,limit:Number($('#planLimit').value),start:$('#planStart').value});if(!result.ids.length)return toast('目前沒有可排程的同業，請調整路名或檢查不用再跑的設定');
    const order=new Map(result.ids.map((id,i)=>[id,i+1]));const next=agencies.map(a=>order.has(a.id)?{...a,planDate:today(),planOrder:order.get(a.id),today:true}:a.planDate===today()?{...a,planDate:'',planOrder:0,today:false}:a);
    if(await save(next)){view='route';document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));render();$('#planSummary').textContent=`已安排 ${result.count} 家、${result.groups.length} 棟；同棟一起排入，可能超過目標家數。`;toast('今日順序已同步')}

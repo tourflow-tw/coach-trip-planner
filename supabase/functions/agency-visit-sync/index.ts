@@ -26,6 +26,12 @@ export async function handler(req:Request):Promise<Response>{
   if(!base||!secret)return reply({error:'SERVER_CONFIGURATION'},503);
   const endpoint=base+'/rest/v1/agency_visit_sync?token_hash=eq.'+hash;
   const authHeaders={apikey:secret,Authorization:'Bearer '+secret,'Content-Type':'application/json'};
+  if(body.op==='read'&&Number.isInteger(body.knownRevision)&&body.knownRevision>=0){
+   const metadata=await fetch(endpoint+'&select=revision,updated_at',{headers:authHeaders,signal:AbortSignal.timeout(15000)});
+   if(!metadata.ok)return reply({error:'DATABASE_UNAVAILABLE'},503);
+   const found=await metadata.json();if(!found.length)return reply({error:'INVALID_LINK'},403);
+   if(found[0].revision===body.knownRevision)return reply({...found[0],unchanged:true});
+  }
   const r=await fetch(endpoint+'&select=agencies,revision,updated_at',{headers:authHeaders,signal:AbortSignal.timeout(15000)});
   if(!r.ok)return reply({error:'DATABASE_UNAVAILABLE'},503);
   const rows=await r.json();if(!rows.length)return reply({error:'INVALID_LINK'},403);
