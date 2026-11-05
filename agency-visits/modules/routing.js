@@ -1,5 +1,5 @@
-import {rating,intervals,today} from './core.js?v=1.13';
-import {groups,origin,distance,road,groupKey,point,routeZone} from './geo.js?v=1.13';
+import {rating,intervals,today} from './core.js?v=1.14';
+import {groups,origin,distance,road,groupKey,point,routeZone} from './geo.js?v=1.14';
 export function dueDate(a){if(a.next)return a.next;if(a.status==='尚未拜訪'||!(a.logs||[]).length)return'';const latest=[...a.logs].sort((x,y)=>y.date.localeCompare(x.date))[0].date;const date=new Date(latest+'T12:00:00+08:00');date.setUTCDate(date.getUTCDate()+(intervals[rating(a)]||30));return date.toISOString().slice(0,10)}
 export function nextMonday(date=today()){const d=new Date(date+'T12:00:00Z'),days=(8-d.getUTCDay())%7||7;d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10)}
 export const isPassed=(a,date=today())=>Boolean(a.passUntil&&date<a.passUntil);
@@ -46,3 +46,6 @@ export function buildPlan(rows,settings,{selectedRoad='',limit=20,date=today(),s
  const firstKey=startKey||(selectedRoad?chosen[0]?.key:'')||'',routeCenter=!startKey&&firstKey?{...chosen[0].point,address:chosen[0].address}:center;
  return{groups:chosen,ids:chosen.flatMap(g=>g.rows.map(a=>a.id)),unknown:available.filter(a=>!point(a)).length,start:{date,zone,kind:start?'building':selectedRoad?'road':'auto',selectedRoad,target:limit,algorithm:3,passByBuildings,building:firstKey,address:routeCenter.address,lat:routeCenter.lat,lng:routeCenter.lng}}
 }
+
+// Manual additions are separate rounds so adding another agency at a completed door stays at the end.
+export function plannedGroups(rows,center){const rounds=[...new Set(rows.map(a=>a.planRound||0))].sort((a,b)=>a-b);return rounds.flatMap(round=>groups(rows.filter(a=>(a.planRound||0)===round),center).map(g=>({...g,buildingKey:g.key,key:round?g.key+'@round'+round:g.key}))) }
