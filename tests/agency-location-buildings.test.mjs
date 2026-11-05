@@ -1,10 +1,10 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {createVisitTracker,distanceMarkup} from '../agency-visits/modules/visit-location.js?v=1.17';
-import {setBuildingData,buildingInfo} from '../agency-visits/modules/building-data.js?v=1.17';
-import {buildingNameRows} from '../agency-visits/modules/building-names.js?v=1.17';
-import {distance} from '../agency-visits/modules/geo.js?v=1.17';
+import {createVisitTracker,distanceMarkup} from '../agency-visits/modules/visit-location.js?v=1.18';
+import {setBuildingData,buildingInfo} from '../agency-visits/modules/building-data.js?v=1.18';
+import {buildingNameRows} from '../agency-visits/modules/building-names.js?v=1.18';
+import {distance} from '../agency-visits/modules/geo.js?v=1.18';
 function fixture(){let success,error,watchCalls=0,cleared=[],now=1000000;const geo={watchPosition(ok,fail,options){watchCalls++;success=ok;error=fail;assert.equal(options.enableHighAccuracy,true);return 0},clearWatch(id){cleared.push(id)}};const tracker=createVisitTracker({geo,now:()=>now});return{tracker,success:p=>success(p),error:e=>error(e),sample:(lat=25.06,lng=121.53,accuracy=10,stamp=now)=>({coords:{latitude:lat,longitude:lng,accuracy},timestamp:stamp}),advance:ms=>now+=ms,get calls(){return watchCalls},cleared}}
 
 test('location starts only on request, updates distances in memory and stops watch id zero',()=>{const f=fixture();assert.equal(f.calls,0);assert.equal(f.tracker.current(),null);f.tracker.start();f.tracker.start();assert.equal(f.calls,1);f.success(f.sample());assert.equal(f.tracker.current().lat,25.06);const before=distance(f.tracker.current(),{lat:25.065,lng:121.53});f.advance(5000);f.success(f.sample(25.064));assert(distance(f.tracker.current(),{lat:25.065,lng:121.53})<before);const late=f.sample(25.1);f.tracker.stop();assert.deepEqual(f.cleared,[0]);assert.equal(f.tracker.current(),null);f.success(late);assert.equal(f.tracker.current(),null);assert(!f.tracker.state.active);assert(!JSON.stringify(f.tracker.state).includes('25.064'));});
@@ -14,3 +14,11 @@ test('stale or inaccurate GPS samples never become current and permissions denia
 test('unsupported, unavailable or security-blocked geolocation leaves the visit list usable',()=>{const missing=createVisitTracker({geo:null});missing.start();assert(!missing.state.active);const blocked=createVisitTracker({geo:{watchPosition(){throw Error('SecurityError')},clearWatch(){}}});blocked.start();assert(!blocked.state.active);const f=fixture();f.tracker.start();f.error({code:2});assert.equal(f.tracker.current(),null);assert(f.tracker.state.active);assert(distanceMarkup(null,'座標待確認').includes('data-distance-lat=""'));});
 
 test('building name lookup uses only matched doors and manual edits or hiding apply to whole building settings',()=>{const snapshot=JSON.parse(fs.readFileSync('agency-visits/building-names.json'));setBuildingData(snapshot);const key='臺北市松山區南京東路3段285號';assert.equal(buildingInfo(key).name,'安泰大樓');assert.equal(buildingInfo(key).manual,false);assert.equal(buildingInfo('臺北市中山區不存在路999號'),null);const original={origin:{address:'公司'},planStart:{date:'2026-11-05'},buildingNames:{other:{name:'其他棟'}}};const updated=buildingNameRows(original,key,' 手動名稱 ');assert.equal(buildingInfo(key,updated).name,'手動名稱');assert(buildingInfo(key,updated).manual);assert.equal(updated.buildingNames.other.name,'其他棟');assert.deepEqual(updated.origin,original.origin);assert.equal(buildingInfo(key,buildingNameRows(updated,key,'')),null);assert.equal(Object.keys(snapshot.matches).length,83);for(const match of Object.values(snapshot.matches)){assert.match(match.source,/^https:\/\/www.openstreetmap.org\/(way|relation)\/\d+$/);assert(['inside','boundary'].includes(match.method))}});
+
+test('silent watch receives a fresh one-shot fix, rejects stale responses and restarts after suspension',()=>{
+ let now=1000000,watchOk,pollOk,polls=0,watches=0,cleared=0;
+ const geo={watchPosition(ok){watchOk=ok;return ++watches},clearWatch(){cleared++},getCurrentPosition(ok,fail,options){pollOk=ok;polls++;assert.equal(options.maximumAge,0)}};
+ const tracker=createVisitTracker({geo,now:()=>now}),sample=(lat,stamp=now)=>({coords:{latitude:lat,longitude:121.53,accuracy:60},timestamp:stamp});
+ tracker.start();assert.equal(polls,1);pollOk(sample(25));assert.equal(tracker.current().lat,25);now+=10000;tracker.refresh();assert.equal(polls,2);pollOk(sample(25.001));assert.equal(tracker.current().lat,25.001);watchOk(sample(24,now-5000));assert.equal(tracker.current().lat,25.001);
+ now+=40000;tracker.refresh();assert.equal(watches,2);assert.equal(cleared,1);pollOk(sample(25.002));assert.equal(tracker.current().lat,25.002);const late=pollOk;tracker.suspend();assert.equal(cleared,2);late(sample(20));assert.equal(tracker.state.position.lat,25.002);tracker.start();assert.equal(watches,3);tracker.stop();pollOk(sample(21));assert.equal(tracker.current(),null);
+});
