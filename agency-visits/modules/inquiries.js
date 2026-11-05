@@ -1,7 +1,7 @@
-import {$,esc,uid,today,formData,toast} from './core.js?v=1.19';
-import {store} from './store.js?v=1.19';
-import {refreshSelects} from './selects.js?v=1.19';
-import {stages,outcomes,services,currencies,isActive,money,buildInquiry,updateContact} from './inquiry-data.js?v=1.19';
+import {$,esc,uid,today,formData,toast} from './core.js?v=1.20';
+import {store} from './store.js?v=1.20';
+import {refreshSelects} from './selects.js?v=1.20';
+import {stages,outcomes,services,currencies,isActive,money,buildInquiry,updateContact} from './inquiry-data.js?v=1.20';
 let context=null,saving=false;
 export function inquiryMarkup(q,attrs=''){
  const due=isActive(q)&&q.nextDate&&q.nextDate<=today();

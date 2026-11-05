@@ -1,4 +1,4 @@
-export const VERSION='1.19';
+export const VERSION='1.20';
 export const $=s=>document.querySelector(s);
 export const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const uid=()=>crypto.randomUUID();

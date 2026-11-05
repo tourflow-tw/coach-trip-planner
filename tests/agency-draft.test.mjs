@@ -1,6 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {loadDraft,saveDraft,applyDraft} from '../agency-visits/modules/visit-draft.js?v=1.19';
-import {createVisitClock} from '../agency-visits/modules/visit-clock.js?v=1.19';
+import {loadDraft,saveDraft,applyDraft} from '../agency-visits/modules/visit-draft.js?v=1.20';
+import {createVisitClock} from '../agency-visits/modules/visit-clock.js?v=1.20';
 test('pending aggregates survive phone restart; interrupted response retries do not double count',()=>{
  const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)},draft={id:'session',meters:[['2026-11-05',120]],seconds:[['2026-11-05',60]],stopped:true};
  assert(saveDraft(storage,'phone',draft));assert.deepEqual(loadDraft(storage,'phone'),draft);assert.equal(loadDraft(storage,'other'),null);assert.equal(saveDraft(null,'phone',draft),false);
