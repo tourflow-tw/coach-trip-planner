@@ -1,5 +1,5 @@
-import {rating,intervals,today} from './core.js?v=1.02';
-import {groups,origin,distance,road,groupKey,point} from './geo.js?v=1.02';
+import {rating,intervals,today} from './core.js?v=1.03';
+import {groups,origin,distance,road,groupKey,point} from './geo.js?v=1.03';
 export function dueDate(a){if(a.next)return a.next;if(a.status==='尚未拜訪'||!(a.logs||[]).length)return'';const latest=[...a.logs].sort((x,y)=>y.date.localeCompare(x.date))[0].date;const date=new Date(latest+'T12:00:00+08:00');date.setUTCDate(date.getUTCDate()+(intervals[rating(a)]||30));return date.toISOString().slice(0,10)}
 export function eligible(a,date=today()){if(a.routeExcluded||(a.logs||[]).some(l=>l.date===date))return false;const due=dueDate(a);return!due||due<=date}
 export function orderedGroups(input,center,firstKey=''){const remaining=input.filter(g=>g.point),missing=input.filter(g=>!g.point);let cursor=center,route=[];const pinned=remaining.findIndex(g=>g.key===firstKey);if(pinned>=0){const [first]=remaining.splice(pinned,1);route.push(first);cursor=first.point}while(remaining.length){let best=0;for(let i=1;i<remaining.length;i++)if(distance(cursor,remaining[i].point)<distance(cursor,remaining[best].point))best=i;const [next]=remaining.splice(best,1);route.push(next);cursor=next.point}
