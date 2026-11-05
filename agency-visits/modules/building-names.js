@@ -1,7 +1,7 @@
-import {$,esc,toast} from './core.js?v=1.14';
-import {store} from './store.js?v=1.14';
-import {groupKey,building} from './geo.js?v=1.14';
-import {buildingInfo} from './building-data.js?v=1.14';
+import {$,esc,toast} from './core.js?v=1.15';
+import {store} from './store.js?v=1.15';
+import {groupKey,building} from './geo.js?v=1.15';
+import {buildingInfo} from './building-data.js?v=1.15';
 let selected='';
 export function buildingNameFor(a){return buildingInfo(groupKey(a),store.settings,building(a))?.name||''}
 export function buildingNameRows(settings,key,name){return{...settings,buildingNames:{...settings.buildingNames,[key]:{name:name.trim()}}}}
