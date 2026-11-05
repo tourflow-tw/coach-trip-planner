@@ -1,2 +1,2 @@
-import {$} from './core.js?v=1.04';import {store} from './store.js?v=1.04';import {groups,origin} from './geo.js?v=1.04';import {renderGroups} from './cards.js?v=1.04';
+import {$} from './core.js?v=1.05';import {store} from './store.js?v=1.05';import {groups,origin} from './geo.js?v=1.05';import {renderGroups} from './cards.js?v=1.05';
 export function renderTracking(){const rows=store.rows.filter(a=>a.status==='待追蹤'&&!a.routeExcluded);$('#trackingTitle').textContent=`正在追蹤詢問（${rows.length}）`;$('#trackingList').innerHTML=renderGroups(groups(rows,origin(store.settings)))}
