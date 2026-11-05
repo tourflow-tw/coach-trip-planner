@@ -1,0 +1,6 @@
+import {origin,planningOrigin,routeZone} from './geo.js?v=1.14';
+import {plannedGroups,scheduledGroups,isPassed} from './routing.js?v=1.14';
+import {calculateStreetRoute,savedStreetRoute,withStreetRoute} from './street-route.js?v=1.14';
+import {recordTravel} from './travel-data.js?v=1.14';
+export function todayRoute(rows,settings,zone,date){const center=planningOrigin(settings,date,zone),first=settings.planStarts?.[zone]?.building||settings.planStart?.building||'';const planned=rows.filter(a=>a.planDate===date&&routeZone(a)===zone&&!a.routeExcluded&&!isPassed(a,date));return{office:origin(settings),route:scheduledGroups(plannedGroups(planned,center),center,first)}}
+export async function prepareStreetPlan(rows,settings,zone,date){const {route,office}=todayRoute(rows,settings,zone,date);const result=savedStreetRoute(settings,zone,route,office,date)||await calculateStreetRoute(route,office,{date});let next=withStreetRoute(settings,zone,result);next=recordTravel(next,date,'plan',0,{[zone]:Math.round(result.total)});next.travelDays[date].plannedBasis={...next.travelDays[date].plannedBasis,[zone]:'foot'};if(new TextEncoder().encode(JSON.stringify(next)).length>45000)throw Error('道路資料超過設定容量，請先備份並整理舊紀錄');return next}
