@@ -1,4 +1,4 @@
-import {$,esc,uid,formData,toast} from './core.js?v=1.08';import {store} from './store.js?v=1.08';import {recognizeCard} from './ocr.js?v=1.08';
+import {$,esc,uid,formData,toast} from './core.js?v=1.09';import {store} from './store.js?v=1.09';import {recognizeCard} from './ocr.js?v=1.09';
 let agencyId=null,index=null,photo='',busy=false;
 const fields=['name','title','phone','mobile','email','line','note'];
 export const safePhoto=p=>typeof p==='string'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p)&&p.length<=180000?p:'';
