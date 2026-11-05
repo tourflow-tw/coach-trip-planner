@@ -1,7 +1,7 @@
-import {today,toast} from './core.js?v=1.12';
-import {store} from './store.js?v=1.12';
-import {groupKey} from './geo.js?v=1.12';
-import {nextMonday,isPassed} from './routing.js?v=1.12';
+import {today,toast} from './core.js?v=1.13';
+import {store} from './store.js?v=1.13';
+import {groupKey} from './geo.js?v=1.13';
+import {nextMonday,isPassed} from './routing.js?v=1.13';
 export const passChange=(a,date=today())=>isPassed(a,date)?{passUntil:''}:{passUntil:nextMonday(date),planDate:'',planOrder:0,today:false};
 // Resolve the whole physical building from shared rows, even when the list is filtered.
 export function buildingPassRows(rows,key,{cancel=false,date=today()}={}){return rows.map(a=>groupKey(a)===key&&!a.routeExcluded?{...a,...(cancel?{passUntil:''}:{passUntil:nextMonday(date),planDate:'',planOrder:0,today:false})}:a)}
