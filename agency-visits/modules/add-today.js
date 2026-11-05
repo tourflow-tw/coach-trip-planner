@@ -1,9 +1,9 @@
-import {$,esc,today,toast} from './core.js?v=1.16';
-import {store} from './store.js?v=1.16';
-import {isPassed} from './routing.js?v=1.16';
-import {refreshSelects} from './selects.js?v=1.16';
-import {appendToday} from './add-today-data.js?v=1.16';
-import {prepareStreetPlan} from './street-plan.js?v=1.16';
+import {$,esc,today,toast} from './core.js?v=1.17';
+import {store} from './store.js?v=1.17';
+import {isPassed} from './routing.js?v=1.17';
+import {refreshSelects} from './selects.js?v=1.17';
+import {appendToday} from './add-today-data.js?v=1.17';
+import {prepareStreetPlan} from './street-plan.js?v=1.17';
 let busy=false;
 export function initAddToday(){const dialog=$('#addTodayDialog');dialog.addEventListener('cancel',e=>{if(busy)e.preventDefault()});$('#appendTodayButton').onclick=()=>{const date=today(),select=$('#appendAgency');const rows=store.rows.filter(a=>!a.routeExcluded&&!isPassed(a,date)&&a.planDate!==date&&!(a.logs||[]).some(l=>l.date===date));select.innerHTML='<option value="">請選擇，可搜尋名稱或地址</option>'+rows.sort((a,b)=>a.name.localeCompare(b.name,'zh-TW')).map(a=>`<option value="${esc(a.id)}">${esc(a.name)}｜${esc(a.address)}</option>`).join('');$('#appendMode').value='agency';refreshSelects();dialog.showModal();$('#appendClose').focus({preventScroll:true})};
  $('#appendNewAgency').onclick=()=>{if(busy)return;dialog.close();document.dispatchEvent(new Event('addagency'))};
