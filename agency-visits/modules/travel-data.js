@@ -1,4 +1,4 @@
-import {distance} from './geo.js?v=1.15';
+import {distance} from './geo.js?v=1.16';
 // Coordinates remain in memory. Only aggregate daily meters enter cloud settings.
 export function routeDistance(route,start,end=null){let meters=0,previous=start,unknown=0;for(const g of route){if(!g.point||!previous){unknown++;previous=g.point;continue}meters+=distance(previous,g.point);previous=g.point}if(route.length&&end){if(previous)meters+=distance(previous,end);else unknown++}return{meters:unknown?null:meters,unknown}}
 export function routeMileage(route,start,position,date){const total=routeDistance(route,start,start);const done=g=>g.rows.every(a=>(a.logs||[]).some(l=>l.date===date));const pending=route.filter(g=>!done(g));const first=route.findIndex(g=>!done(g));const previous=first>0?route.slice(0,first).reverse().find(g=>g.point)?.point:null;return{total:total.meters,remaining:(pending.length?routeDistance(pending,position||previous||start,start).meters:route.length?distance(position||route.at(-1).point||start,start):0),unknown:total.unknown,buildings:route.length,pending:pending.length}}

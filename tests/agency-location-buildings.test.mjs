@@ -1,10 +1,10 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {createVisitTracker,distanceMarkup} from '../agency-visits/modules/visit-location.js?v=1.15';
-import {setBuildingData,buildingInfo} from '../agency-visits/modules/building-data.js?v=1.15';
-import {buildingNameRows} from '../agency-visits/modules/building-names.js?v=1.15';
-import {distance} from '../agency-visits/modules/geo.js?v=1.15';
+import {createVisitTracker,distanceMarkup} from '../agency-visits/modules/visit-location.js?v=1.16';
+import {setBuildingData,buildingInfo} from '../agency-visits/modules/building-data.js?v=1.16';
+import {buildingNameRows} from '../agency-visits/modules/building-names.js?v=1.16';
+import {distance} from '../agency-visits/modules/geo.js?v=1.16';
 function fixture(){let success,error,watchCalls=0,cleared=[],now=1000000;const geo={watchPosition(ok,fail,options){watchCalls++;success=ok;error=fail;assert.equal(options.enableHighAccuracy,true);return 0},clearWatch(id){cleared.push(id)}};const tracker=createVisitTracker({geo,now:()=>now});return{tracker,success:p=>success(p),error:e=>error(e),sample:(lat=25.06,lng=121.53,accuracy=10,stamp=now)=>({coords:{latitude:lat,longitude:lng,accuracy},timestamp:stamp}),advance:ms=>now+=ms,get calls(){return watchCalls},cleared}}
 
 test('location starts only on request, updates distances in memory and stops watch id zero',()=>{const f=fixture();assert.equal(f.calls,0);assert.equal(f.tracker.current(),null);f.tracker.start();f.tracker.start();assert.equal(f.calls,1);f.success(f.sample());assert.equal(f.tracker.current().lat,25.06);const before=distance(f.tracker.current(),{lat:25.065,lng:121.53});f.advance(5000);f.success(f.sample(25.064));assert(distance(f.tracker.current(),{lat:25.065,lng:121.53})<before);const late=f.sample(25.1);f.tracker.stop();assert.deepEqual(f.cleared,[0]);assert.equal(f.tracker.current(),null);f.success(late);assert.equal(f.tracker.current(),null);assert(!f.tracker.state.active);assert(!JSON.stringify(f.tracker.state).includes('25.064'));});
