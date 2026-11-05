@@ -1,0 +1,22 @@
+import {$,today,toast} from './core.js?v=1.21';
+import {store} from './store.js?v=1.21';
+export function dayCounts(rows,date){
+ const selected=rows.filter(a=>a.planDate===date);
+ const handled=selected.filter(a=>(a.logs||[]).some(l=>l.date===date)).length;
+ return{total:selected.length,handled,unvisited:selected.length-handled};
+}
+export function settleDay(rows,date){return rows.map(a=>a.planDate===date?{...a,planDate:'',planOrder:0,planRound:0,today:false}:a)}
+export function settleSettings(settings,date){
+ const starts=Object.fromEntries(Object.entries(settings.planStarts||{}).filter(([,p])=>p?.date!==date));
+ return{...settings,planStart:settings.planStart?.date===date?null:settings.planStart,planStarts:starts};
+}
+export function initDayClose(){
+ $('#closeDay').onclick=async()=>{
+  if($('#visitLocationToggle')?.getAttribute('aria-pressed')==='true')return toast('請先停止拜訪，等里程與時間同步後再結算今日');
+  const date=today(),count=dayCounts(store.rows,date);
+  if(!count.total)return toast('今天沒有需要結算的排程');
+  if(!confirm('今日已處理 '+count.handled+' 家，尚未跑 '+count.unvisited+' 家。\n結算後清空今天全部 '+count.total+' 家的排程；未跑的仍保留在旅行社名單，下次可以重新安排。\n拜訪紀錄、評分、聯絡人、里程和時間均保留。確定結算？'))return;
+  if(await store.save(settleDay(store.rows,date),settleSettings(store.settings,date)))
+   toast('今日已結算：已處理 '+count.handled+' 家，未跑 '+count.unvisited+' 家退回待排；雲端同步中');
+ };
+}

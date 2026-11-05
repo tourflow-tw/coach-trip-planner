@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {ratedToday,visibleVisitGroups} from '../agency-visits/modules/visit-visibility.js?v=1.20';
+import {ratedToday,visibleVisitGroups} from '../agency-visits/modules/visit-visibility.js?v=1.21';
 const date='2026-11-05';
 test('only today completed and rated visits collapse, preserving mixed buildings and original step numbers',()=>{
  const done={id:'done',status:'已拜訪',rating:4,logs:[{date}]},needsRating={id:'rating',status:'已拜訪',rating:0,logs:[{date}]},returnVisit={id:'return',status:'已拜訪',rating:5,logs:[{date:'2026-10-01'}]},newAgency={id:'new',status:'尚未拜訪',rating:5,logs:[]};

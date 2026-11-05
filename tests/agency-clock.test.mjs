@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createVisitClock,durationLabel,totalVisitSeconds,recordVisitSeconds} from '../agency-visits/modules/visit-clock.js?v=1.20';
+import {createVisitClock,durationLabel,totalVisitSeconds,recordVisitSeconds} from '../agency-visits/modules/visit-clock.js?v=1.21';
 test('start to stop measures elapsed time once; restarting resets only the session',()=>{
  let stamp=Date.parse('2026-11-05T10:00:00+08:00'),total=0;
  const clock=createVisitClock({now:()=>stamp,add:(day,seconds)=>{assert.equal(day,'2026-11-05');total+=seconds}});
