@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {buildInquiry,updateContact,activeInquiries,money} from '../agency-visits/modules/inquiry-data.js?v=1.22';
+import {buildInquiry,updateContact,activeInquiries,money} from '../agency-visits/modules/inquiry-data.js?v=1.23';
 const values={title:'大阪包車',service:'包車',destination:'大阪',people:'6',startDate:'2026-12-01',endDate:'2026-12-05',requirements:'海獅與行李空間',stage:'準備報價',nextDate:'2026-11-06',outcome:'進行中',currency:'JPY',budget:'',quotedAmount:'120000',dealAmount:'',lostReason:'',updateNote:'等待確認班機'};
 test('contact data edits and multiple inquiries preserve photos, visit logs, other contacts and custom fields',()=>{
  const first=buildInquiry(values,{},'q1','2026-11-05T01:00:00Z'),second=buildInquiry({...values,title:'東京接送'}, {},'q2');
