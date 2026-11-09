@@ -1,4 +1,4 @@
-import {toast} from './core.js?v=1.21';
+import {toast} from './core.js?v=1.22';
 export const store={
  rows:[],settings:{},page:'route',filtered:[],listeners:new Set(),
  sequence:0,confirmed:0,sending:false,conflicted:false,waiters:[],retryTimer:null,warnBound:false,

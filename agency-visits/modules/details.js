@@ -1,9 +1,9 @@
-import {buildingNameFor} from './building-names.js?v=1.21';
-import {recordUnsuccessfulVisit} from './visit-outcomes.js?v=1.21';
-import {groupKey,point,origin,distance,distanceLabel} from './geo.js?v=1.21';
-import {distanceMarkup,renderVisitLocation} from './visit-location.js?v=1.21';
-import {refreshSelects} from './selects.js?v=1.21';
-import {$,esc,today,uid,formData,category,rating,hasVisited,statuses,toast} from './core.js?v=1.21';import {store} from './store.js?v=1.21';import {stars} from './cards.js?v=1.21';import {renderContacts,openContacts} from './contacts.js?v=1.21';import {openExclusion} from './exclusions.js?v=1.21';
+import {buildingNameFor} from './building-names.js?v=1.22';
+import {recordUnsuccessfulVisit} from './visit-outcomes.js?v=1.22';
+import {groupKey,point,origin,distance,distanceLabel} from './geo.js?v=1.22';
+import {distanceMarkup,renderVisitLocation} from './visit-location.js?v=1.22';
+import {refreshSelects} from './selects.js?v=1.22';
+import {$,esc,today,uid,formData,category,rating,hasVisited,statuses,toast} from './core.js?v=1.22';import {store} from './store.js?v=1.22';import {stars} from './cards.js?v=1.22';import {renderContacts,openContacts} from './contacts.js?v=1.22';import {openExclusion} from './exclusions.js?v=1.22';
 let selected=null,editing=null;
 export function renderDetail({reset=false}={}){const a=store.rows.find(a=>a.id===selected);if(!a)return;$('#detailTitle').textContent=a.name;$('#detailInfo').innerHTML=`<p>${esc(buildingNameFor(a))}</p><p>${esc(a.address)}</p><p>${distanceMarkup(point(a),distanceLabel(distance(origin(store.settings),point(a))))}</p><button data-building-name="${esc(groupKey(a))}">大樓名稱</button><div class="tags"><span>${esc(category(a))}</span><span>${esc(a.status==='待追蹤'?'正在追蹤詢問':a.status)}</span></div>${hasVisited(a)?stars(rating(a),a.id):''}`;$('#excludeAgency').textContent=a.routeExcluded?'重新加入拜訪排程':'這間不用再跑';renderContacts(a);$('#logs').innerHTML=(a.logs||[]).map((l,i)=>({...l,index:i})).sort((a,b)=>b.date.localeCompare(a.date)||b.index-a.index).map(l=>`<article class="visitLog"><header><small>${esc(l.date)} · ${esc(l.status)}</small><button data-log-delete="${l.index}" class="danger">刪除紀錄</button></header><p>${esc(l.text)}</p></article>`).join('')||'<p class="muted">尚無拜訪紀錄</p>';if(reset){$('#logForm').reset();$('#logForm').elements.date.value=today();$('#logForm').elements.next.value=a.next||''}renderVisitLocation()}
 export function openDetail(id){selected=id;renderDetail({reset:true});renderVisitLocation();$('#detailDialog').showModal()}

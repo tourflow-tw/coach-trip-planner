@@ -1,5 +1,5 @@
-import {$,today,toast} from './core.js?v=1.21';
-import {store} from './store.js?v=1.21';
+import {$,today,toast} from './core.js?v=1.22';
+import {store} from './store.js?v=1.22';
 export function dayCounts(rows,date){
  const selected=rows.filter(a=>a.planDate===date);
  const handled=selected.filter(a=>(a.logs||[]).some(l=>l.date===date)).length;

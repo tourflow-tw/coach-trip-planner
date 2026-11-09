@@ -1,10 +1,10 @@
-import {$,esc,today,toast} from './core.js?v=1.21';
-import {store} from './store.js?v=1.21';
-import {isPassed} from './routing.js?v=1.21';
-import {roads,origin,routeZone} from './geo.js?v=1.21';
-import {refreshSelects} from './selects.js?v=1.21';
-import {appendToday,appendSmartToday} from './add-today-data.js?v=1.21';
-import {prepareStreetPlan} from './street-plan.js?v=1.21';
+import {$,esc,today,toast} from './core.js?v=1.22';
+import {store} from './store.js?v=1.22';
+import {isPassed} from './routing.js?v=1.22';
+import {roads,origin,routeZone} from './geo.js?v=1.22';
+import {refreshSelects} from './selects.js?v=1.22';
+import {appendToday,appendSmartToday} from './add-today-data.js?v=1.22';
+import {prepareStreetPlan} from './street-plan.js?v=1.22';
 let busy=false;
 const smartOptions=()=>({zone:$('#appendZone').value,selectedRoad:$('#appendRoad').value,limit:Number($('#appendLimit').value),date:today()});
 function preview(){if($('#appendStrategy').value!=='smart')return;try{const change=appendSmartToday(store.rows,store.settings,smartOptions());$('#appendPreview').innerHTML=`<strong>預計追加 ${change.count} 家、${change.buildings} 棟${change.count<change.requested?'（符合條件的名單不足目標家數）':change.count>change.requested?'（同棟一起加入）':''}</strong><ol>${change.added.map(a=>`<li>${esc(a.name)}<small class="muted">${esc(a.address)}</small></li>`).join('')}</ol>`}catch(e){$('#appendPreview').textContent=e.message}}

@@ -1,8 +1,8 @@
-import {buildingNameFor} from './building-names.js?v=1.21';
-import {$,esc,category} from './core.js?v=1.21';
-import {store} from './store.js?v=1.21';
-import {groups,origin,roads,groupKey,distanceLabel} from './geo.js?v=1.21';
-import {renderGroups} from './cards.js?v=1.21';
+import {buildingNameFor} from './building-names.js?v=1.22';
+import {$,esc,category} from './core.js?v=1.22';
+import {store} from './store.js?v=1.22';
+import {groups,origin,roads,groupKey,distanceLabel} from './geo.js?v=1.22';
+import {renderGroups} from './cards.js?v=1.22';
 let page=1;const pageSize=12;
 function filtered(){const q=$('#search').value.trim().toLowerCase(),r=$('#roadFilter').value,s=$('#statusFilter').value,b=$('#buildingFilter').value;return store.rows.filter(a=>(!r||roads([a],origin(store.settings))[0]?.name===r)&&(!s||a.status===s)&&(!b||groupKey(a)===b)&&[a.name,a.address,buildingNameFor(a),a.phone,a.contact,...(a.contacts||[]).flatMap(c=>[c.name,c.phone,c.mobile,c.line])].some(v=>String(v||'').toLowerCase().includes(q)))}
 export function renderList(){const center=origin(store.settings),rf=$('#roadFilter'),old=rf.value;rf.innerHTML='<option value="">全部路名</option>'+roads(store.rows,center).map(r=>`<option value="${esc(r.name)}">${esc(r.name)} · ${r.count} 家 · ${distanceLabel(r.distance)}</option>`).join('');rf.value=[...rf.options].some(o=>o.value===old)?old:'';const bf=$('#buildingFilter'),previous=bf.value;bf.innerHTML='<option value="">全部同棟地址</option>'+groups(store.rows.filter(a=>!rf.value||roads([a],center)[0]?.name===rf.value),center).map(g=>`<option value="${esc(g.key)}">${esc(buildingNameFor(g.rows[0]))}${buildingNameFor(g.rows[0])?'｜':''}${esc(g.address)} · ${g.rows.length} 家</option>`).join('');bf.value=[...bf.options].some(o=>o.value===previous)?previous:'';
