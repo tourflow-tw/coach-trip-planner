@@ -1,5 +1,5 @@
-import {rating} from './core.js?v=1.23';
-import {missedToday} from './visit-outcomes.js?v=1.23';
+import {rating} from './core.js?v=1.24';
+import {missedToday} from './visit-outcomes.js?v=1.24';
 export const ratedToday=(agency,date)=>rating(agency)>0&&(agency.logs||[]).some(log=>log.date===date);
 export const handledToday=(agency,date)=>ratedToday(agency,date)||missedToday(agency,date);
 export function visibleVisitGroups(groups,date,showCompleted=false){

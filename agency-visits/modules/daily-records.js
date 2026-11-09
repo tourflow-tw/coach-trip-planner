@@ -1,9 +1,9 @@
-import {$,esc,today} from './core.js?v=1.23';
-import {store} from './store.js?v=1.23';
-import {groupKey,floorLabel,distanceLabel} from './geo.js?v=1.23';
-import {buildingNameFor} from './building-names.js?v=1.23';
-import {durationLabel} from './visit-clock.js?v=1.23';
-import {dayRecord,historyDates} from './daily-records-data.js?v=1.23';
+import {$,esc,today} from './core.js?v=1.24';
+import {store} from './store.js?v=1.24';
+import {groupKey,floorLabel,distanceLabel} from './geo.js?v=1.24';
+import {buildingNameFor} from './building-names.js?v=1.24';
+import {durationLabel} from './visit-clock.js?v=1.24';
+import {dayRecord,historyDates} from './daily-records-data.js?v=1.24';
 let selectedDate='',chosen=false,filter='all';
 const metric=(name,value)=>'<div class="dailyMetric"><small>'+esc(name)+'</small><strong>'+esc(value)+'</strong></div>';
 const statusClass=status=>status==='找不到'?'notFound':status==='沒人在'?'absent':'visited';

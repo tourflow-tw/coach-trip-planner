@@ -9,16 +9,17 @@ const Cloud=(()=>{
  async function request(body){if(typeof navigator!=='undefined'&&navigator.onLine===false)throw Error('OFFLINE');const response=await fetch(URL_BASE,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json',apikey:'sb_publishable_pmftI3EMAq-zFYHIpMdpjA_u9lp1jJT'},body:JSON.stringify({key,...body}),signal:AbortSignal.timeout(25000)});let data;try{data=await response.json()}catch{throw Error('INVALID_RESPONSE')}if(!response.ok){const e=new Error(data.error);e.code=data.error;throw e}return data}
  function check(rows){if(!Array.isArray(rows)||rows.some(a=>!a||typeof a.name!=='string'||typeof a.id!=='string'||!/^[a-zA-Z0-9-]{1,100}$/.test(a.id)||!Array.isArray(a.logs)))throw Error('INVALID_DATA');return rows}
  async function load({force=false}={}){
-  if(!key||busy||loading||api.dirty||(!force&&document.querySelector('dialog[open]')))return;
+  if(!key||busy||loading||(!force&&document.querySelector('dialog[open]')))return;
   loading=true;
   try{
-   const data=await request({op:'read',...(hydrated?{knownRevision:revision}:{})});if(api.dirty)return;
+   const data=await request({op:'read',...(hydrated?{knownRevision:revision}:{})});
    if(data.unchanged===true){if(!hydrated||data.revision!==revision)throw Error('INVALID_RESPONSE')}
-   else{const rows=check(data.agencies);if(!hydrated||revision!==data.revision)api.onData?.(rows,data.settings||{});revision=data.revision;hydrated=true}
-   ready=true;$('#syncLinkPanel').classList.add('hidden');state('✓ 已連接 Supabase · 資料更新於 '+new Date(data.updated_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}));
+   else{const rows=check(data.agencies);if(!api.dirty&&(!hydrated||revision!==data.revision))api.onData?.(rows,data.settings||{});revision=data.revision;hydrated=true}
+   ready=true;$('#syncLinkPanel').classList.add('hidden');if(!api.dirty)state('✓ 已連接 Supabase · 資料更新於 '+new Date(data.updated_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}));else document.dispatchEvent(new Event('cloudrevision'));
   }catch(e){ready=false;state(problem(e));if(e.code==='INVALID_LINK')$('#syncLinkPanel').classList.remove('hidden')}
   finally{loading=false}
  }
+ api.load=()=>load({force:true});
  api.save=async (rows,settings)=>{
   if(!hydrated||busy||loading){const e=new Error('連線正在更新，稍後會重試');e.code='BUSY_READ';throw e}check(rows);busy=true;state('正在背景同步 Supabase…');
   try{const data=await request({op:'save',agencies:rows,expectedRevision:revision,...(settings===undefined?{}:{settings})});revision=data.revision;state('✓ 已儲存至 Supabase · '+new Date(data.updated_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}))}
@@ -29,7 +30,7 @@ const Cloud=(()=>{
  api.start=async()=>{
   // Remove the previous offline snapshot. App-shell caching contains no agency data.
   try{if(typeof indexedDB!=='undefined')indexedDB.deleteDatabase('agency-visit-offline-v1')}catch{}
-  $('#openSyncLink').onclick=()=>{let k='';try{k=new URLSearchParams(new URL($('#syncLinkInput').value).hash.slice(1)).get('sync')||''}catch{}if(!/^[0-9a-f]{64}$/.test(k)){state('請貼上完整的專屬網址，包含 #sync= 後面的內容。');return}useKey(k)};
+  $('#openSyncLink').onclick=()=>{if(api.dirty)return state('尚有本機待同步資料，無法切換專屬網址；請先下載備份。');let k='';try{k=new URLSearchParams(new URL($('#syncLinkInput').value).hash.slice(1)).get('sync')||''}catch{}if(!/^[0-9a-f]{64}$/.test(k)){state('請貼上完整的專屬網址，包含 #sync= 後面的內容。');return}useKey(k)};
   $('#copyLink').onclick=async()=>{if(!key)return state('請先開啟專屬網址。');try{await navigator.clipboard.writeText(location.href);state('✓ 專屬網址已複製，可在另一台裝置開啟。')}catch{state('請從網址列複製完整網址，包含 #sync= 後面的內容。')}};
   window.addEventListener('hashchange',()=>{const next=new URLSearchParams(location.hash.slice(1)).get('sync')||'';if(next===key)return;if(/^[0-9a-f]{64}$/.test(next)&&!api.dirty&&!busy&&!loading&&!document.querySelector('dialog[open]'))useKey(next);else{if(key)history.replaceState(null,'',location.pathname+location.search+'#sync='+key);state('請先完成目前編輯，再開啟完整專屬網址。')}});
   window.addEventListener('focus',()=>load());window.addEventListener('online',()=>load());

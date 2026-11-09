@@ -1,5 +1,5 @@
-import {groupKey,routeZone,floor,point,origin} from './geo.js?v=1.23';
-import {isPassed,buildPlan} from './routing.js?v=1.23';
+import {groupKey,routeZone,floor,point,origin} from './geo.js?v=1.24';
+import {isPassed,buildPlan} from './routing.js?v=1.24';
 export function appendToday(rows,id,mode,date){const target=rows.find(a=>a.id===id);if(!target)throw Error('請選擇旅行社');if(target.routeExcluded||isPassed(target,date))throw Error('這間已排除或本週 pass，請先取消排除／pass 再加入');const zone=routeZone(target),same=groupKey(target),today=rows.filter(a=>a.planDate===date),order=Math.max(0,...today.map(a=>Number(a.planOrder)||0)),round=Math.max(0,...today.map(a=>Number(a.planRound)||0))+1;
  const candidates=rows.filter(a=>(mode==='building'?groupKey(a)===same:a.id===id)&&!a.routeExcluded&&!isPassed(a,date)&&a.planDate!==date&&!(a.logs||[]).some(l=>l.date===date)).sort((a,b)=>(floor(b)??-Infinity)-(floor(a)??-Infinity));if(!candidates.length)throw Error('所選旅行社今日已排入或已拜訪，請選擇其他同業');const updates=new Map(candidates.map((a,i)=>[a.id,{...a,planDate:date,planOrder:order+i+1,planRound:round,today:true}]));return{rows:rows.map(a=>updates.get(a.id)||a),zone,count:candidates.length}}
 

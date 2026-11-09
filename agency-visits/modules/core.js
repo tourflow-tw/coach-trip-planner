@@ -1,4 +1,4 @@
-export const VERSION='1.23';
+export const VERSION='1.24';
 export const $=s=>document.querySelector(s);
 export const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const uid=()=>crypto.randomUUID();
@@ -8,6 +8,6 @@ export const category=a=>a.category||String(a.note||'').match(/旅行業類別[�
 export const hasVisited=a=>a.status!=='尚未拜訪'&&((a.logs||[]).length>0||['已拜訪','待追蹤','已有合作','暫不合作'].includes(a.status));
 export const rating=a=>hasVisited(a)&&Number(a.rating)>=1&&Number(a.rating)<=5?Math.round(Number(a.rating)):0;
 export const intervals={1:90,2:60,3:30,4:14,5:7};
-export function toast(message){const dialogs=[...document.querySelectorAll('dialog[open]')];(dialogs.at(-1)||document.body).append($('#toast'));$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').hidden=true,4500)}
+export function toast(message){if(typeof window!=='undefined'&&window.Cloud?.dirty&&/(已儲存|已保存|已標記|已安排|已追加|已結算|已更新|已還原)/.test(message))message=message.replaceAll('已儲存','已暫存').replaceAll('已保存','已暫存')+'（尚未同步雲端）';const dialogs=[...document.querySelectorAll('dialog[open]')];(dialogs.at(-1)||document.body).append($('#toast'));$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').hidden=true,4500)}
 export function formData(form){return Object.fromEntries(new FormData(form))}
 export function initCore(){document.addEventListener('click',e=>{const b=e.target.closest('[data-close]');if(b&&!$('#'+b.dataset.close).hasAttribute('data-saving'))$('#'+b.dataset.close).close()});$('#version').textContent='v'+VERSION;$('#version').onclick=()=>location.reload()}

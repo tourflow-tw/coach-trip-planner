@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {appendSmartToday,appendToday} from '../agency-visits/modules/add-today-data.js?v=1.23';
+import {appendSmartToday,appendToday} from '../agency-visits/modules/add-today-data.js?v=1.24';
 const date='2026-11-05',settings={origin:{address:'捷利',lat:25.06,lng:121.53}};
 const a=(id,lat,address,extra={})=>({id,name:id,address,lat,lng:121.53,status:'尚未拜訪',logs:[],...extra});
 test('smart additions continue at the last scheduled building and preserve completed rows and the office',()=>{
