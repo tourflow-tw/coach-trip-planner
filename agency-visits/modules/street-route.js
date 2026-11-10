@@ -1,4 +1,4 @@
-import {distance} from './geo.js?v=1.25';
+import {distance} from './geo.js?v=1.26';
 const ENDPOINT='https://routing.openstreetmap.de/routed-foot/route/v1/foot/';
 let busy=0,lastRequest=0;
 export const roadRouteBusy=()=>busy>0;

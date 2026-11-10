@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {pendingKey,readPending,writePending,clearPending} from '../agency-visits/modules/pending-sync.js?v=1.25';
+import {pendingKey,readPending,writePending,clearPending} from '../agency-visits/modules/pending-sync.js?v=1.26';
 test('large unsynced edits survive reload in IndexedDB until explicit removal',async()=>{
  const old={indexedDB:globalThis.indexedDB,location:globalThis.location,localStorage:globalThis.localStorage};
  const values=new Map(),scope='a'.repeat(64);

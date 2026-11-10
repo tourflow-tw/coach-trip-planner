@@ -1,8 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {store} from '../agency-visits/modules/store.js?v=1.25';
-import {pendingKey,readPending,writePending,listPendingArchives} from '../agency-visits/modules/pending-sync.js?v=1.25';
-import {equalJson,conflictSummary} from '../agency-visits/modules/conflict-data.js?v=1.25';
+import {store} from '../agency-visits/modules/store.js?v=1.26';
+import {pendingKey,readPending,writePending,listPendingArchives} from '../agency-visits/modules/pending-sync.js?v=1.26';
+import {equalJson,conflictSummary} from '../agency-visits/modules/conflict-data.js?v=1.26';
 function mockDB(){
  const data=new Map();
  const request=(tx,fn)=>{const r={};queueMicrotask(()=>{try{r.result=fn();r.onsuccess?.();queueMicrotask(()=>tx.oncomplete?.())}catch(error){tx.error=error;tx.onerror?.()}});return r};

@@ -1,9 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {dayCounts,settleDay,settleSettings} from '../agency-visits/modules/day-close.js?v=1.25';
-import {recordUnsuccessfulVisit,missedToday} from '../agency-visits/modules/visit-outcomes.js?v=1.25';
-import {visibleVisitGroups} from '../agency-visits/modules/visit-visibility.js?v=1.25';
-import {dueDate} from '../agency-visits/modules/routing.js?v=1.25';
+import {dayCounts,settleDay,settleSettings} from '../agency-visits/modules/day-close.js?v=1.26';
+import {recordUnsuccessfulVisit,missedToday} from '../agency-visits/modules/visit-outcomes.js?v=1.26';
+import {visibleVisitGroups} from '../agency-visits/modules/visit-visibility.js?v=1.26';
+import {dueDate} from '../agency-visits/modules/routing.js?v=1.26';
 const date='2026-11-05',base={id:'a',name:'A',status:'尚未拜訪',rating:0,planDate:date,planOrder:1,planRound:2,today:true,contacts:[{name:'窗口'}],logs:[]};
 test('unsuccessful visit is logged but not rated, and collapses immediately',()=>{
  const attempted=recordUnsuccessfulVisit(base,'沒人在',date,'log1');assert.equal(attempted.status,'尚未拜訪');assert.equal(attempted.logs[0].status,'沒人在');assert(missedToday(attempted,date));assert.equal(dueDate(attempted),'');

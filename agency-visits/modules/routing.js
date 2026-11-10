@@ -1,5 +1,5 @@
-import {rating,intervals,today} from './core.js?v=1.25';
-import {groups,origin,distance,road,groupKey,point,routeZone} from './geo.js?v=1.25';
+import {rating,intervals,today} from './core.js?v=1.26';
+import {groups,origin,distance,road,groupKey,point,routeZone} from './geo.js?v=1.26';
 export function dueDate(a){if(a.next)return a.next;if(a.status==='尚未拜訪'||!(a.logs||[]).length)return'';const successful=a.logs.filter(l=>!['找不到','沒人在'].includes(l.outcome||l.status));if(!successful.length)return '';const latest=[...successful].sort((x,y)=>y.date.localeCompare(x.date))[0].date;const date=new Date(latest+'T12:00:00+08:00');date.setUTCDate(date.getUTCDate()+(intervals[rating(a)]||30));return date.toISOString().slice(0,10)}
 export function nextMonday(date=today()){const d=new Date(date+'T12:00:00Z'),days=(8-d.getUTCDay())%7||7;d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10)}
 export const isPassed=(a,date=today())=>Boolean(a.passUntil&&date<a.passUntil);

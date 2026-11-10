@@ -1,7 +1,7 @@
-import {$,toast} from './core.js?v=1.25';
-import {store} from './store.js?v=1.25';
-import {pendingKey,listPendingArchives} from './pending-sync.js?v=1.25';
-import {conflictSummary} from './conflict-data.js?v=1.25';
+import {$,toast} from './core.js?v=1.26';
+import {store} from './store.js?v=1.26';
+import {pendingKey,listPendingArchives} from './pending-sync.js?v=1.26';
+import {conflictSummary} from './conflict-data.js?v=1.26';
 let preview=null,busy=false;
 const status=message=>{$('#syncConflictStatus').textContent=message};
 function download(name,data){

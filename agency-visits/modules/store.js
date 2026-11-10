@@ -1,6 +1,6 @@
-import {toast} from './core.js?v=1.25';
-import {pendingKey,readPending,writePending,clearPending,archivePending} from './pending-sync.js?v=1.25';
-import {equalJson} from './conflict-data.js?v=1.25';
+import {toast} from './core.js?v=1.26';
+import {pendingKey,readPending,writePending,clearPending,archivePending} from './pending-sync.js?v=1.26';
+import {equalJson} from './conflict-data.js?v=1.26';
 export const store={
  rows:[],settings:{},page:'route',filtered:[],listeners:new Set(),
  sequence:0,confirmed:0,persisted:0,baseRevision:null,sending:false,conflicted:false,

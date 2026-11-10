@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {createMileageMeter,routeMileage,routeDistance,totalMoved,recordTravel} from '../agency-visits/modules/travel-data.js?v=1.25';
+import {createMileageMeter,routeMileage,routeDistance,totalMoved,recordTravel} from '../agency-visits/modules/travel-data.js?v=1.26';
 const p=(lat,t,accuracy=5)=>({lat,lng:121.53,timestamp:t,accuracy});
 test('mileage ignores jitter, repeats and out-of-order samples and adds real movement once',()=>{const m=createMileageMeter();assert.equal(m.push(p(25,1000)).meters,0);assert.equal(m.push(p(25.00001,5000)).meters,0);const d=m.push(p(25.0002,11000)).meters;assert(d>20&&d<25);assert.equal(m.push(p(25.0003,11000)).meters,0);assert.equal(m.push(p(25.0003,10000)).meters,0);assert(m.push(p(25.0004,21000)).meters>20)});
 test('pauses, long gaps, poor accuracy and impossible jumps do not bridge missing distance',()=>{const m=createMileageMeter();m.push(p(25,1000));m.pause();assert.equal(m.push(p(25.1,11000)).meters,0);assert(m.push(p(25.2,12000)).gap);assert.equal(m.push(p(25.3,14000)).meters,0);assert(m.push(p(25.4,200000)).gap);assert.equal(m.push(p(25.4,201000,80)).meters,0);assert.equal(m.push(p(25.5,202000)).meters,0)});

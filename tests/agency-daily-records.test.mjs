@@ -1,8 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {dayRecord,historyDates} from '../agency-visits/modules/daily-records-data.js?v=1.25';
-import {settleSettings} from '../agency-visits/modules/day-close.js?v=1.25';
+import {dayRecord,historyDates} from '../agency-visits/modules/daily-records-data.js?v=1.26';
+import {settleSettings} from '../agency-visits/modules/day-close.js?v=1.26';
 const date='2026-11-09';
 const rows=[
  {id:'a',name:'甲旅',address:'臺北市中山區松江路1號',logs:[{date,status:'已拜訪',text:'第一次詢問'},{date,status:'待追蹤',text:'第二次詢問'},{date:'2026-11-08',status:'已拜訪'}]},
@@ -32,6 +32,6 @@ test('settlements preserve cumulative unfinished assignments without clearing tr
 test('daily tab, assets and date filters are published together',()=>{
  const html=fs.readFileSync('agency-visits/index.html','utf8'),sw=fs.readFileSync('agency-visits/sw.js','utf8'),app=fs.readFileSync('agency-visits/app.js','utf8');
  assert(html.includes('data-page="daily"'));assert(html.includes('id="dailyDate"'));assert(html.includes('id="dailyEntries"'));
- assert(sw.includes('modules/daily-records.js?v=1.25'));assert(sw.includes('modules/daily-records-data.js?v=1.25'));
+ assert(sw.includes('modules/daily-records.js?v=1.26'));assert(sw.includes('modules/daily-records-data.js?v=1.26'));
  assert(app.includes('renderDailyRecords()'));assert(app.includes('initDailyRecords()'));
 });

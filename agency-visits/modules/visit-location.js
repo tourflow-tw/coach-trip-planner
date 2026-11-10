@@ -1,5 +1,5 @@
-import {$} from './core.js?v=1.25';
-import {distance,distanceLabel} from './geo.js?v=1.25';
+import {$} from './core.js?v=1.26';
+import {distance,distanceLabel} from './geo.js?v=1.26';
 export function createVisitTracker({geo,now=()=>Date.now(),changed=()=>{}}){
  let watcher=null,generation=0,poll=null,lastPoll=-Infinity,watchStarted=0;
  const state={active:false,position:null,message:'開始拜訪後，依定位更新距離'};
