@@ -1,5 +1,6 @@
-import {toast} from './core.js?v=1.24';
-import {pendingKey,readPending,writePending,clearPending} from './pending-sync.js?v=1.24';
+import {toast} from './core.js?v=1.25';
+import {pendingKey,readPending,writePending,clearPending,archivePending} from './pending-sync.js?v=1.25';
+import {equalJson} from './conflict-data.js?v=1.25';
 export const store={
  rows:[],settings:{},page:'route',filtered:[],listeners:new Set(),
  sequence:0,confirmed:0,persisted:0,baseRevision:null,sending:false,conflicted:false,
@@ -13,7 +14,7 @@ export const store={
   if(typeof window==='undefined'||!window.Cloud)return;
   window.Cloud.dirty=this.pending();
   const banner=typeof document!=='undefined'?document.querySelector('#syncBanner'):null;
-  if(banner){banner.hidden=!this.pending();const t=document.querySelector('#syncBannerText');if(t&&this.pending())t.textContent=message||(this.conflicted?'雲端資料與本機待同步內容不同，已停止寫入。請先下載本機備份核對，切勿清除網站資料。':'本機已有待同步備份，尚未確認寫入 Supabase。請勿關閉頁面或清除網站資料。')}
+  if(banner){banner.hidden=!this.pending();const resolve=document.querySelector('#resolveConflict');if(resolve)resolve.hidden=!this.conflicted;const t=document.querySelector('#syncBannerText');if(t&&this.pending())t.textContent=message||(this.conflicted?'雲端資料與本機待同步內容不同，已停止寫入。請先下載本機備份核對，切勿清除網站資料。':'本機已有待同步備份，尚未確認寫入 Supabase。請勿關閉頁面或清除網站資料。')}
   if(this.pending())this.notify(message||'本機待同步，尚未儲存至 Supabase');
  },
  init(){
@@ -31,12 +32,36 @@ export const store={
    let key;try{key=pendingKey()}catch{return}
    const saved=await readPending(key);
    if(!saved||!Array.isArray(saved.rows)||!saved.settings||!Number.isInteger(saved.baseRevision))return;
+   if(window.Cloud.hydrated&&equalJson(saved.rows,this.rows)&&equalJson(saved.settings,this.settings)){
+    await clearPending(key);this.baseRevision=window.Cloud.revision;this.syncFlag();return;
+   }
    this.rows=saved.rows;this.settings=saved.settings;this.sequence=1;this.confirmed=0;this.persisted=1;this.baseRevision=saved.baseRevision;
    this.conflicted=Boolean(window.Cloud.hydrated&&window.Cloud.revision!==this.baseRevision);
    this.syncFlag(this.conflicted?'已找回本機未同步資料，但雲端版本不同。為避免覆寫，已停止同步；請下載本機備份並核對。':'已從此裝置找回上次未同步資料，正在嘗試寫入 Supabase。');
    this.emit();if(!this.conflicted)this.flush();
   }catch(e){this.notify('無法檢查本機待同步備份：'+e.message);toast('無法檢查本機備份，請勿清除網站資料')}
   finally{this.recovering=false}
+ },
+ async useCloudSnapshot(snapshot){
+  if(!this.conflicted||this.sending||this.recovering)throw Error('目前沒有可解除的版本衝突，或仍在同步中');
+  if(!snapshot||!Number.isInteger(snapshot.revision)||!Array.isArray(snapshot.agencies))throw Error('雲端資料不完整');
+  const key=pendingKey();
+  await this.persistQueue.catch(()=>{});
+  // Archive the original pending data BEFORE clearing it. Do not overwrite the cloud with stale data.
+  const active=await readPending(key);
+  // Preserve the newest in-memory version even if the last IndexedDB write failed.
+  if(!active||!equalJson(active.rows,this.rows)||!equalJson(active.settings,this.settings))
+   await writePending({key,rows:this.rows,settings:this.settings,baseRevision:this.baseRevision,savedAt:Date.now()});
+  const archived=await archivePending(key);
+  if(!archived)throw Error('無法保留待同步資料的本機封存，已取消解除衝突');
+  await clearPending(key);
+  this.failWaiters();
+  this.sequence=0;this.confirmed=0;this.persisted=0;this.baseRevision=snapshot.revision;this.conflicted=false;
+  this.rows=snapshot.agencies;this.settings=snapshot.settings||{};
+  this.syncFlag();
+  window.Cloud.acceptRemote(snapshot);
+  this.emit();
+  return archived;
  },
  retry(){if(this.retryTimer)return;this.retryTimer=setTimeout(()=>{this.retryTimer=null;this.flush()},4000)},
  failWaiters(){

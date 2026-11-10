@@ -28,3 +28,6 @@
 
 /* Unsynced data warning, always visible on mobile. */
 .syncBanner{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:25;background:#fff0db;color:#6b3315;border-bottom:2px solid #cb814a;padding:12px 24px;font-size:13px}.syncBanner[hidden]{display:none!important}.syncBanner strong{font-weight:650;line-height:1.5}.syncBanner button{border:1px solid #b77b4f;background:#fff;color:#633b27;white-space:nowrap}@media(max-width:600px){.syncBanner{padding:10px 12px;flex-direction:column;align-items:stretch}.syncBanner button{width:100%}}
+
+/* v1.25 conflict resolution controls */
+.syncBannerActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.syncBannerActions button{font-weight:600}.syncBannerActions .primary{background:#245548;color:#fff}.syncConflictDiff{background:#f5f6f2;border:1px solid var(--line);border-radius:10px;padding:14px;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.85 system-ui,sans-serif}#syncConflictDialog{max-width:min(95vw,680px)}#syncConflictDialog .modalFoot{flex-wrap:wrap}@media(max-width:600px){.syncBannerActions{width:100%}.syncBannerActions button{flex:1;white-space:normal}.syncBannerActions .primary{background:#245548;color:white}}

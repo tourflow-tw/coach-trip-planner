@@ -1,3 +1,3 @@
-import {$} from './core.js?v=1.24';import {store} from './store.js?v=1.24';
+import {$} from './core.js?v=1.25';import {store} from './store.js?v=1.25';
 export function renderNavigation(){document.querySelectorAll('[data-page]').forEach(button=>{button.classList.toggle('active',button.dataset.page===store.page);button.setAttribute('aria-current',button.dataset.page===store.page?'page':'false')});document.querySelectorAll('[data-panel]').forEach(panel=>panel.hidden=panel.dataset.panel!==store.page);$('#toggleMap').hidden=!['route','list'].includes(store.page);if(!['route','list'].includes(store.page)){$('#mapDrawer').hidden=true;$('#workspace').classList.remove('withMap')}}
 export function initNavigation(){document.querySelectorAll('[data-page]').forEach(button=>button.onclick=()=>store.go(button.dataset.page))}

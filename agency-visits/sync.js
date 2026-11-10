@@ -1,4 +1,4 @@
-/* Supabase is authoritative. Only the access link is remembered locally. */
+/* Cloud is authoritative; unsynced edits are independently preserved in IndexedDB. */
 'use strict';
 const Cloud=(()=>{
  const $=s=>document.querySelector(s),URL_BASE='https://oafoxkpepuldeaaraxcm.supabase.co/functions/v1/agency-visit-sync',KEY='agency-visit-sync-link-v1';
@@ -20,6 +20,19 @@ const Cloud=(()=>{
   finally{loading=false}
  }
  api.load=()=>load({force:true});
+ // Fetch a complete latest snapshot for conflict comparison without mutating the screen.
+ api.fetchRemote=async()=>{
+  const data=await request({op:'read'});
+  if(!Number.isInteger(data.revision)||data.revision<0)throw Error('INVALID_RESPONSE');
+  return {...data,agencies:check(data.agencies),settings:data.settings||{}};
+ };
+ // Called only after the user explicitly chooses the remote copy and local data is archived.
+ api.acceptRemote=data=>{
+  if(!Number.isInteger(data?.revision)||!Array.isArray(data.agencies))throw Error('INVALID_RESPONSE');
+  revision=data.revision;ready=true;hydrated=true;api.dirty=false;
+  api.onData?.(data.agencies,data.settings||{});
+  state('✓ 已改用 Supabase 雲端資料 · '+new Date(data.updated_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}));
+ };
  api.save=async (rows,settings)=>{
   if(!hydrated||busy||loading){const e=new Error('連線正在更新，稍後會重試');e.code='BUSY_READ';throw e}check(rows);busy=true;state('正在背景同步 Supabase…');
   try{const data=await request({op:'save',agencies:rows,expectedRevision:revision,...(settings===undefined?{}:{settings})});revision=data.revision;state('✓ 已儲存至 Supabase · '+new Date(data.updated_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}))}

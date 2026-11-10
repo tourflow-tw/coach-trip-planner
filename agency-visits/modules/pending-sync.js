@@ -25,3 +25,16 @@ async function transact(mode,action){
 export const readPending=key=>transact('readonly',table=>table.get(key));
 export const writePending=record=>transact('readwrite',table=>table.put(record));
 export const clearPending=key=>transact('readwrite',table=>table.delete(key));
+
+const archivePrefix=key=>'archive:'+key+':';
+export async function archivePending(key){
+ const saved=await readPending(key);
+ if(!saved)return null;
+ const archiveKey=archivePrefix(key)+Date.now()+'-'+crypto.randomUUID();
+ await writePending({...saved,key:archiveKey,originalKey:key,archivedAt:new Date().toISOString()});
+ return archiveKey;
+}
+export async function listPendingArchives(key){
+ const entries=await transact('readonly',table=>table.getAll());
+ return (entries||[]).filter(item=>typeof item.key==='string'&&item.key.startsWith(archivePrefix(key))).sort((a,b)=>(b.archivedAt||'').localeCompare(a.archivedAt||''));
+}
