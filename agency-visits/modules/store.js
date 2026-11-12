@@ -122,7 +122,7 @@ export const store={
    catch(e){toast('無法完成雲端儲存，資料未更改：'+e.message);return false}
   }
   const hadPending=this.pending();
-  if(!hadPending)this.baseRevision=window.Cloud.revision;
+  if(!hadPending&&window.Cloud.hydrated)this.baseRevision=window.Cloud.revision;
   this.rows=rows;this.settings=settings;const version=++this.sequence;
   this.syncFlag('正在建立本機備份，雲端尚未確認');this.emit();
   const entry={key:pendingKey(),rows,settings,baseRevision:this.baseRevision,savedAt:Date.now()};
