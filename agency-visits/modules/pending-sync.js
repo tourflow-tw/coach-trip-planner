@@ -38,3 +38,7 @@ export async function listPendingArchives(key){
  const entries=await transact('readonly',table=>table.getAll());
  return (entries||[]).filter(item=>typeof item.key==='string'&&item.key.startsWith(archivePrefix(key))).sort((a,b)=>(b.archivedAt||'').localeCompare(a.archivedAt||''));
 }
+
+// Keep last cloud-confirmed state apart from pending edits, for offline startup.
+export const readSnapshot=key=>readPending('snapshot:'+key);
+export const writeSnapshot=record=>writePending({...record,key:'snapshot:'+record.key});
