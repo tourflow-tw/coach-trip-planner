@@ -33,9 +33,9 @@ const Cloud=(()=>{
   api.onData?.(data.agencies,data.settings||{});
   state('✓ 已改用 Supabase 雲端資料 · '+new Date(data.updated_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}));
  };
- api.save=async (rows,settings)=>{
+ api.save=async (rows,settings,delta=null)=>{
   if(!hydrated||busy||loading){const e=new Error('連線正在更新，稍後會重試');e.code='BUSY_READ';throw e}check(rows);busy=true;state('正在背景同步 Supabase…');
-  try{const data=await request({op:'save',agencies:rows,expectedRevision:revision,...(settings===undefined?{}:{settings})});revision=data.revision;state('✓ 已儲存至 Supabase · '+new Date(data.updated_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}))}
+  try{const data=await request({...(delta?{op:'patch',upserts:delta.upserts,deletes:delta.deletes}:{op:'save',agencies:rows}),expectedRevision:revision,...(settings===undefined?{}:{settings})});revision=data.revision;state('✓ 已儲存至 Supabase · '+new Date(data.updated_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}))}
   catch(e){state(problem(e));const error=new Error(problem(e));error.code=e.code||'NETWORK_ERROR';throw error}
   finally{busy=false}
  };
