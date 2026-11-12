@@ -1,14 +1,14 @@
 import {toast} from './core.js?v=1.26';
-import {pendingKey,readPending,writePending,clearPending,archivePending} from './pending-sync.js?v=1.26';
+import {pendingKey,readPending,writePending,clearPending,archivePending,readSnapshot,writeSnapshot} from './pending-sync.js?v=1.26';
 import {equalJson} from './conflict-data.js?v=1.26';
 export const store={
  rows:[],settings:{},page:'route',filtered:[],listeners:new Set(),
  sequence:0,confirmed:0,persisted:0,baseRevision:null,sending:false,conflicted:false,
- waiters:[],retryTimer:null,persistQueue:Promise.resolve(),warnBound:false,recovering:false,
+ waiters:[],retryTimer:null,persistQueue:Promise.resolve(),warnBound:false,recovering:false,localLoaded:false,flushTimer:null,
  subscribe(fn){this.listeners.add(fn);return()=>this.listeners.delete(fn)},
  emit(){for(const fn of this.listeners)fn()},
  pending(){return this.sequence>this.confirmed},
- hydrate(rows,settings={}){if(typeof window!=='undefined'&&window.Cloud?.dirty)return;this.rows=rows;this.settings=settings;this.emit()},
+ hydrate(rows,settings={}){if(typeof window!=='undefined'&&window.Cloud?.dirty)return;this.rows=rows;this.settings=settings;this.localLoaded=true;this.baseRevision=window.Cloud?.revision??this.baseRevision;this.emit();try{const key=pendingKey();this.persistQueue=this.persistQueue.catch(()=>{}).then(()=>writeSnapshot({key,rows,settings,baseRevision:this.baseRevision,savedAt:Date.now()}));}catch{}},
  notify(message){const el=typeof document!=='undefined'?document.querySelector('#cloudState'):null;if(el)el.textContent=message},
  syncFlag(message=''){
   if(typeof window==='undefined'||!window.Cloud)return;
@@ -31,11 +31,18 @@ export const store={
   try{
    let key;try{key=pendingKey()}catch{return}
    const saved=await readPending(key);
-   if(!saved||!Array.isArray(saved.rows)||!saved.settings||!Number.isInteger(saved.baseRevision))return;
+   if(!saved||!Array.isArray(saved.rows)||!saved.settings||!Number.isInteger(saved.baseRevision)){
+    const snapshot=await readSnapshot(key);
+    if(snapshot&&Array.isArray(snapshot.rows)&&snapshot.settings&&Number.isInteger(snapshot.baseRevision)&&!window.Cloud.hydrated){
+     this.rows=snapshot.rows;this.settings=snapshot.settings;this.baseRevision=snapshot.baseRevision;this.localLoaded=true;this.emit();
+     this.notify('已載入手機本機資料；正在確認雲端版本（離線仍可使用）');
+    }
+    return;
+   }
    if(window.Cloud.hydrated&&equalJson(saved.rows,this.rows)&&equalJson(saved.settings,this.settings)){
     await clearPending(key);this.baseRevision=window.Cloud.revision;this.syncFlag();return;
    }
-   this.rows=saved.rows;this.settings=saved.settings;this.sequence=1;this.confirmed=0;this.persisted=1;this.baseRevision=saved.baseRevision;
+   this.rows=saved.rows;this.settings=saved.settings;this.localLoaded=true;this.sequence=1;this.confirmed=0;this.persisted=1;this.baseRevision=saved.baseRevision;
    this.conflicted=Boolean(window.Cloud.hydrated&&window.Cloud.revision!==this.baseRevision);
    this.syncFlag(this.conflicted?'已找回本機未同步資料，但雲端版本不同。為避免覆寫，已停止同步；請下載本機備份並核對。':'已從此裝置找回上次未同步資料，正在嘗試寫入 Supabase。');
    this.emit();if(!this.conflicted)this.flush();
@@ -64,6 +71,7 @@ export const store={
   return archived;
  },
  retry(){if(this.retryTimer)return;this.retryTimer=setTimeout(()=>{this.retryTimer=null;this.flush()},4000)},
+ scheduleFlush(){if(this.flushTimer)clearTimeout(this.flushTimer);this.flushTimer=setTimeout(()=>{this.flushTimer=null;this.flush()},1200)},
  failWaiters(){
   const pending=this.waiters.splice(0);for(const w of pending)w.resolve(false);
  },
@@ -78,6 +86,7 @@ export const store={
    try{
     await window.Cloud.save(rows,settings);
     this.confirmed=version;this.baseRevision=window.Cloud.revision;this.syncFlag();
+    {const key=pendingKey();this.persistQueue=this.persistQueue.catch(()=>{}).then(()=>writeSnapshot({key,rows:this.rows,settings:this.settings,baseRevision:this.baseRevision,savedAt:Date.now()}));await this.persistQueue;}
     for(const w of this.waiters.filter(w=>w.version<=this.confirmed))w.resolve(true);
     this.waiters=this.waiters.filter(w=>w.version>this.confirmed);
     if(!this.pending()){
@@ -103,7 +112,7 @@ export const store={
   })();
  },
  async save(rows=this.rows,settings=this.settings){
-  if(typeof window==='undefined'||!window.Cloud||(!window.Cloud.ready&&!window.Cloud.hydrated)){
+  if(typeof window==='undefined'||!window.Cloud||(!window.Cloud.ready&&!window.Cloud.hydrated&&!this.localLoaded)){
    toast('尚未載入 Supabase 資料，請先確認連線再操作');return false;
   }
   if(this.conflicted){toast('本機與雲端資料有衝突，請先下載備份核對，避免覆寫');return false}
@@ -118,7 +127,7 @@ export const store={
   this.syncFlag('正在建立本機備份，雲端尚未確認');this.emit();
   const entry={key:pendingKey(),rows,settings,baseRevision:this.baseRevision,savedAt:Date.now()};
   this.persistQueue=this.persistQueue.catch(()=>{}).then(()=>writePending(entry));
-  try{await this.persistQueue;this.persisted=version;this.syncFlag();this.flush();return true}
+  try{await this.persistQueue;this.persisted=version;this.syncFlag();this.scheduleFlush();return true}
   catch(e){
    this.syncFlag('本機備份寫入失敗！畫面變更尚無安全備份；請立即從設定下載完整備份：'+e.message);
    toast('本機備份寫入失敗，請立即下載完整備份並保留此頁');return false;
