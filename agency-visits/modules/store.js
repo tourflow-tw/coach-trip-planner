@@ -86,7 +86,7 @@ export const store={
    try{
     await window.Cloud.save(rows,settings);
     this.confirmed=version;this.baseRevision=window.Cloud.revision;this.syncFlag();
-    {const key=pendingKey();this.persistQueue=this.persistQueue.catch(()=>{}).then(()=>writeSnapshot({key,rows:this.rows,settings:this.settings,baseRevision:this.baseRevision,savedAt:Date.now()}));await this.persistQueue;}
+    {const key=pendingKey();this.persistQueue=this.persistQueue.catch(()=>{}).then(()=>writeSnapshot({key,rows,settings,baseRevision:this.baseRevision,savedAt:Date.now()}));await this.persistQueue;}
     for(const w of this.waiters.filter(w=>w.version<=this.confirmed))w.resolve(true);
     this.waiters=this.waiters.filter(w=>w.version>this.confirmed);
     if(!this.pending()){
