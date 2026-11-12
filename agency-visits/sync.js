@@ -39,10 +39,9 @@ const Cloud=(()=>{
   catch(e){state(problem(e));const error=new Error(problem(e));error.code=e.code||'NETWORK_ERROR';throw error}
   finally{busy=false}
  };
- function useKey(k){if(api.dirty)return;key=k;ready=false;hydrated=false;revision=0;api.onData?.([]);try{localStorage.setItem(KEY,key)}catch{}history.replaceState(null,'',location.pathname+location.search+'#sync='+key);return load({force:true})}
+ function useKey(k){if(api.dirty&&key&&key!==k)return;key=k;ready=false;hydrated=false;revision=0;try{localStorage.setItem(KEY,key)}catch{}history.replaceState(null,'',location.pathname+location.search+'#sync='+key);return load({force:true})}
  api.start=async()=>{
-  // Remove the previous offline snapshot. App-shell caching contains no agency data.
-  try{if(typeof indexedDB!=='undefined')indexedDB.deleteDatabase('agency-visit-offline-v1')}catch{}
+  // Never delete local databases at startup; unsynced edits might still exist.
   $('#openSyncLink').onclick=()=>{if(api.dirty)return state('尚有本機待同步資料，無法切換專屬網址；請先下載備份。');let k='';try{k=new URLSearchParams(new URL($('#syncLinkInput').value).hash.slice(1)).get('sync')||''}catch{}if(!/^[0-9a-f]{64}$/.test(k)){state('請貼上完整的專屬網址，包含 #sync= 後面的內容。');return}useKey(k)};
   $('#copyLink').onclick=async()=>{if(!key)return state('請先開啟專屬網址。');try{await navigator.clipboard.writeText(location.href);state('✓ 專屬網址已複製，可在另一台裝置開啟。')}catch{state('請從網址列複製完整網址，包含 #sync= 後面的內容。')}};
   window.addEventListener('hashchange',()=>{const next=new URLSearchParams(location.hash.slice(1)).get('sync')||'';if(next===key)return;if(/^[0-9a-f]{64}$/.test(next)&&!api.dirty&&!busy&&!loading&&!document.querySelector('dialog[open]'))useKey(next);else{if(key)history.replaceState(null,'',location.pathname+location.search+'#sync='+key);state('請先完成目前編輯，再開啟完整專屬網址。')}});
