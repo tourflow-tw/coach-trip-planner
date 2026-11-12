@@ -4,11 +4,11 @@ import {equalJson} from './conflict-data.js?v=1.26';
 export const store={
  rows:[],settings:{},page:'route',filtered:[],listeners:new Set(),
  sequence:0,confirmed:0,persisted:0,baseRevision:null,sending:false,conflicted:false,
- waiters:[],retryTimer:null,persistQueue:Promise.resolve(),warnBound:false,recovering:false,localLoaded:false,flushTimer:null,
+ waiters:[],retryTimer:null,persistQueue:Promise.resolve(),warnBound:false,recovering:false,localLoaded:false,flushTimer:null,baselineRows:null,
  subscribe(fn){this.listeners.add(fn);return()=>this.listeners.delete(fn)},
  emit(){for(const fn of this.listeners)fn()},
  pending(){return this.sequence>this.confirmed},
- hydrate(rows,settings={}){if(typeof window!=='undefined'&&window.Cloud?.dirty)return;this.rows=rows;this.settings=settings;this.localLoaded=true;this.baseRevision=window.Cloud?.revision??this.baseRevision;this.emit();try{const key=pendingKey();this.persistQueue=this.persistQueue.catch(()=>{}).then(()=>writeSnapshot({key,rows,settings,baseRevision:this.baseRevision,savedAt:Date.now()}));}catch{}},
+ hydrate(rows,settings={}){if(typeof window!=='undefined'&&window.Cloud?.dirty)return;this.rows=rows;this.settings=settings;this.localLoaded=true;this.baseRevision=window.Cloud?.revision??this.baseRevision;this.baselineRows=structuredClone(rows);this.emit();try{const key=pendingKey();this.persistQueue=this.persistQueue.catch(()=>{}).then(()=>writeSnapshot({key,rows,settings,baseRevision:this.baseRevision,savedAt:Date.now()}));}catch{}},
  notify(message){const el=typeof document!=='undefined'?document.querySelector('#cloudState'):null;if(el)el.textContent=message},
  syncFlag(message=''){
   if(typeof window==='undefined'||!window.Cloud)return;
@@ -34,7 +34,7 @@ export const store={
    if(!saved||!Array.isArray(saved.rows)||!saved.settings||!Number.isInteger(saved.baseRevision)){
     const snapshot=await readSnapshot(key);
     if(snapshot&&Array.isArray(snapshot.rows)&&snapshot.settings&&Number.isInteger(snapshot.baseRevision)&&!window.Cloud.hydrated){
-     this.rows=snapshot.rows;this.settings=snapshot.settings;this.baseRevision=snapshot.baseRevision;this.localLoaded=true;this.emit();
+     this.rows=snapshot.rows;this.settings=snapshot.settings;this.baseRevision=snapshot.baseRevision;this.localLoaded=true;this.baselineRows=structuredClone(snapshot.rows);this.emit();
      this.notify('已載入手機本機資料；正在確認雲端版本（離線仍可使用）');
     }
     return;
@@ -81,11 +81,20 @@ export const store={
   if(this.baseRevision!==window.Cloud.revision){
    this.conflicted=true;this.syncFlag('雲端已被其他裝置更新，已停止覆寫。請先下載本機待同步備份並核對。');this.failWaiters();return;
   }
-  const version=this.sequence,rows=this.rows,settings=this.settings;this.sending=true;
+  const version=this.sequence,rows=structuredClone(this.rows),settings=structuredClone(this.settings);this.sending=true;
+  // Send only modified agencies over mobile data; preserve full snapshot fallback.
+  let delta=null;
+  if(this.baselineRows){
+   const previous=new Map(this.baselineRows.map(a=>[a.id,JSON.stringify(a)]));
+   const upserts=rows.filter(a=>previous.get(a.id)!==JSON.stringify(a));
+   const currentIds=new Set(rows.map(a=>a.id));
+   const deletes=this.baselineRows.filter(a=>!currentIds.has(a.id)).map(a=>a.id);
+   if(JSON.stringify({upserts,deletes}).length<1800000)delta={upserts,deletes};
+  }
   (async()=>{let failed=false;
    try{
-    await window.Cloud.save(rows,settings);
-    this.confirmed=version;this.baseRevision=window.Cloud.revision;this.syncFlag();
+    await window.Cloud.save(rows,settings,delta);
+    this.confirmed=version;this.baseRevision=window.Cloud.revision;this.baselineRows=rows;this.syncFlag();
     {const key=pendingKey();this.persistQueue=this.persistQueue.catch(()=>{}).then(()=>writeSnapshot({key,rows,settings,baseRevision:this.baseRevision,savedAt:Date.now()}));await this.persistQueue;}
     for(const w of this.waiters.filter(w=>w.version<=this.confirmed))w.resolve(true);
     this.waiters=this.waiters.filter(w=>w.version>this.confirmed);
