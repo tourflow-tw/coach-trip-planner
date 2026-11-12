@@ -14,7 +14,7 @@ const Cloud=(()=>{
   try{
    const data=await request({op:'read',...(hydrated?{knownRevision:revision}:{})});
    if(data.unchanged===true){if(!hydrated||data.revision!==revision)throw Error('INVALID_RESPONSE')}
-   else{const rows=check(data.agencies);if(!api.dirty&&(!hydrated||revision!==data.revision))api.onData?.(rows,data.settings||{});revision=data.revision;hydrated=true}
+   else{const rows=check(data.agencies);if(!api.dirty&&(!hydrated||revision!==data.revision)){revision=data.revision;api.onData?.(rows,data.settings||{})}else revision=data.revision;hydrated=true}
    ready=true;$('#syncLinkPanel').classList.add('hidden');if(!api.dirty)state('✓ 已連接 Supabase · 資料更新於 '+new Date(data.updated_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}));else document.dispatchEvent(new Event('cloudrevision'));
   }catch(e){ready=false;state(problem(e));if(e.code==='INVALID_LINK')$('#syncLinkPanel').classList.remove('hidden')}
   finally{loading=false}
