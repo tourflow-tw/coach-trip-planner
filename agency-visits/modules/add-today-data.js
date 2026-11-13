@@ -1,7 +1,29 @@
 import {groupKey,routeZone,floor,point,origin} from './geo.js?v=1.26';
 import {isPassed,buildPlan} from './routing.js?v=1.26';
-export function appendToday(rows,id,mode,date){const target=rows.find(a=>a.id===id);if(!target)throw Error('請選擇旅行社');if(target.routeExcluded||isPassed(target,date))throw Error('這間已排除或本週 pass，請先取消排除／pass 再加入');const zone=routeZone(target),same=groupKey(target),today=rows.filter(a=>a.planDate===date),order=Math.max(0,...today.map(a=>Number(a.planOrder)||0)),round=Math.max(0,...today.map(a=>Number(a.planRound)||0))+1;
- const candidates=rows.filter(a=>(mode==='building'?groupKey(a)===same:a.id===id)&&!a.routeExcluded&&!isPassed(a,date)&&a.planDate!==date&&!(a.logs||[]).some(l=>l.date===date)).sort((a,b)=>(floor(b)??-Infinity)-(floor(a)??-Infinity));if(!candidates.length)throw Error('所選旅行社今日已排入或已拜訪，請選擇其他同業');const updates=new Map(candidates.map((a,i)=>[a.id,{...a,planDate:date,planOrder:order+i+1,planRound:round,today:true}]));return{rows:rows.map(a=>updates.get(a.id)||a),zone,count:candidates.length}}
+
+// Insert manual additions directly after already handled visits and before pending
+// visits. A pending stop at the same address takes precedence, so there is only
+// one visit to that building. Never overwrite log/status/rating data.
+export function appendToday(rows,id,mode,date){
+ const target=rows.find(a=>a.id===id);
+ if(!target)throw Error('請選擇旅行社');
+ if(target.routeExcluded||isPassed(target,date))throw Error('這間已排除或本週 pass，請先取消排除／pass 再加入');
+ const zone=routeZone(target),same=groupKey(target);
+ const candidates=rows.filter(a=>(mode==='building'?groupKey(a)===same:a.id===id)&&!a.routeExcluded&&!isPassed(a,date)&&a.planDate!==date&&!(a.logs||[]).some(l=>l.date===date)).sort((a,b)=>(floor(b)??-Infinity)-(floor(a)??-Infinity));
+ if(!candidates.length)throw Error('所選旅行社今日已排入或已拜訪，請選擇其他同業');
+ const scheduled=rows.filter(a=>a.planDate===date).sort((a,b)=>(Number(a.planOrder)||0)-(Number(b.planOrder)||0));
+ const handled=a=>(a.logs||[]).some(l=>l.date===date);
+ const samePending=scheduled.findIndex(a=>routeZone(a)===zone&&groupKey(a)===same&&!handled(a));
+ // If the building already has pending doors, join that stop. Otherwise place
+ // the new door at the boundary between completed and uncompleted visits.
+ const lastHandled=scheduled.reduce((i,a,n)=>handled(a)?n:i,-1);
+ const insertion=samePending>=0?samePending:lastHandled+1;
+ const ordered=[...scheduled.slice(0,insertion),...candidates,...scheduled.slice(insertion)];
+ const orders=new Map(ordered.map((a,i)=>[a.id,i+1]));
+ const additions=new Set(candidates.map(a=>a.id));
+ const updated=rows.map(a=>orders.has(a.id)?{...a,planDate:date,planOrder:orders.get(a.id),planRound:0,today:true}:a);
+ return {rows:updated,zone,count:additions.size};
+}
 
 // Continue after the last scheduled door; keep all original orders and completed visits.
 export function appendSmartToday(rows,settings,{zone='main',limit=20,selectedRoad='',date}={}){
