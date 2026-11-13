@@ -1,4 +1,4 @@
-import {initAddToday} from './modules/add-today.js?v=1.26';
+import {initAddToday} from './modules/add-today.js?v=1.28';
 import {initDayClose} from './modules/day-close.js?v=1.26';
 import {initConflictResolution} from './modules/conflict-resolution.js?v=1.26';
 import {initDailyRecords,renderDailyRecords} from './modules/daily-records.js?v=1.26';
@@ -10,7 +10,7 @@ import {initSelects,refreshSelects} from './modules/selects.js?v=1.26';
 import {store} from './modules/store.js?v=1.26';
 import {loadGeo} from './modules/geo.js?v=1.26';
 import {initNavigation,renderNavigation} from './modules/navigation.js?v=1.26';
-import {initSchedule,renderSchedule} from './modules/schedule.js?v=1.26';
+import {initSchedule,renderSchedule} from './modules/schedule.js?v=1.28';
 import {initList,renderList} from './modules/list.js?v=1.26';
 import {initDetails} from './modules/details.js?v=1.26';
 import {initContacts} from './modules/contacts.js?v=1.26';
