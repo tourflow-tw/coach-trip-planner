@@ -21,7 +21,7 @@ export function buildPlan(rows,settings,{selectedRoad='',limit=20,date=today(),s
  const office=origin(settings),canStart=a=>routeZone(a)===zone&&!a.routeExcluded&&!isPassed(a,date)&&!(a.logs||[]).some(l=>l.date===date),firstBuilding=start?groups(rows.filter(canStart),office).find(g=>g.key===start&&g.point):null;
  if(start&&!firstBuilding)throw Error('這棟不在本區、已 pass 或沒有可排程的旅行社，請重新選擇');
  const startKey=firstBuilding?.key||'',center=firstBuilding?{...firstBuilding.point,address:firstBuilding.address}:office;
- const available=rows.filter(a=>canStart(a)&&(groupKey(a)===startKey||eligible(a,date))),candidates=groups(available,center).filter(g=>g.point);
+ const available=rows.filter(a=>canStart(a)&&(groupKey(a)===startKey||eligible(a,date))),candidates=groups(available,center).filter(g=>g.point).map(g=>({...g,rows:groups(rows.filter(a=>canStart(a)&&groupKey(a)===g.key),center)[0].rows}));
  const chosen=[],chosenKeys=new Set(),passByBuildings=[];let count=0;const add=g=>{if(chosenKeys.has(g.key))return;chosen.push(g);chosenKeys.add(g.key);count+=g.rows.length};
  const connect=(target,reserved)=>{if(chosenKeys.has(target.key))return;if(chosen.length){const startPoint=chosen.at(-1).point;
  const corners=candidates.filter(g=>!chosenKeys.has(g.key)&&g.key!==target.key&&!reserved.has(g.key)).map(g=>({g,...passByCost(startPoint,target.point,g.point)})).filter(x=>x.progress>=0&&x.progress<=1&&x.offset<=60&&x.extra<=90).sort((a,b)=>a.progress-b.progress||a.extra-b.extra);
@@ -47,5 +47,18 @@ export function buildPlan(rows,settings,{selectedRoad='',limit=20,date=today(),s
  return{groups:chosen,ids:chosen.flatMap(g=>g.rows.map(a=>a.id)),unknown:available.filter(a=>!point(a)).length,start:{date,zone,kind:start?'building':selectedRoad?'road':'auto',selectedRoad,target:limit,algorithm:3,passByBuildings,building:firstKey,address:routeCenter.address,lat:routeCenter.lat,lng:routeCenter.lng}}
 }
 
-// Manual additions are separate rounds so adding another agency at a completed door stays at the end.
-export function plannedGroups(rows,center){const rounds=[...new Set(rows.map(a=>a.planRound||0))].sort((a,b)=>a-b);return rounds.flatMap(round=>groups(rows.filter(a=>(a.planRound||0)===round),center).map(g=>({...g,buildingKey:g.key,key:round?g.key+'@round'+round:g.key}))) }
+// Keep the saved door order authoritative. Merge only adjacent doors in the same
+// building; a newly added door can sit between completed and pending stops.
+export function plannedGroups(rows,center){
+ const ordered=[...rows].sort((a,b)=>(Number(a.planOrder)||0)-(Number(b.planOrder)||0));
+ const segments=[];
+ for(const agency of ordered){
+  const key=groupKey(agency)||'待確認-'+agency.id,last=segments.at(-1);
+  if(last?.buildingKey===key)last.items.push(agency);
+  else segments.push({buildingKey:key,items:[agency]});
+ }
+ return segments.map((segment,i)=>{
+  const g=groups(segment.items,center)[0];
+  return {...g,buildingKey:segment.buildingKey,key:segment.buildingKey+'@stop'+i};
+ });
+}
