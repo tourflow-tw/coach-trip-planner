@@ -26,14 +26,20 @@ export function appendToday(rows,id,mode,date){
 }
 
 // Continue after the last scheduled door; keep all original orders and completed visits.
-export function appendSmartToday(rows,settings,{zone='main',limit=20,selectedRoad='',date}={}){
+export function appendSmartToday(rows,settings,{zone='main',limit=20,selectedRoad='',date,neverVisited=false}={}){
  if(!['main','neihu'].includes(zone))throw Error('請選擇拜訪區域');
- const available=rows.filter(a=>a.planDate!==date&&!(a.logs||[]).some(l=>l.date===date));
- const tail=rows.filter(a=>a.planDate===date&&routeZone(a)===zone&&!a.routeExcluded&&!isPassed(a,date)).sort((a,b)=>(Number(b.planOrder)||0)-(Number(a.planOrder)||0)).find(a=>point(a));
+ const available=rows.filter(a=>a.planDate!==date&&!(a.logs||[]).some(l=>l.date===date)&&(!neverVisited||(!(a.logs||[]).length&&(!a.status||a.status==='尚未拜訪'))));
+ const tail=rows.filter(a=>a.planDate===date&&routeZone(a)===zone&&!a.routeExcluded&&!isPassed(a,date)&&(!neverVisited||(a.logs||[]).some(l=>l.date===date))).sort((a,b)=>(Number(b.planOrder)||0)-(Number(a.planOrder)||0)).find(a=>point(a));
  const center=tail?{...point(tail),address:tail.address}:origin(settings);
  const plan=buildPlan(available,{...settings,origin:center},{zone,limit,selectedRoad,date});
- if(!plan.ids.length)throw Error('本區沒有可追加的到期或尚未拜訪同業，請調整區域／路名，或使用手動追加');
- const planned=rows.filter(a=>a.planDate===date),order=Math.max(0,...planned.map(a=>Number(a.planOrder)||0)),round=Math.max(0,...planned.map(a=>Number(a.planRound)||0))+1;
- const updates=new Map(plan.ids.map((id,i)=>[id,{planDate:date,planOrder:order+i+1,planRound:round,today:true}]));
- return{rows:rows.map(a=>updates.has(a.id)?{...a,...updates.get(a.id)}:a),zone,count:plan.ids.length,added:plan.groups.flatMap(g=>g.rows),requested:limit,buildings:plan.groups.length,unknown:plan.unknown};
+ if(!plan.ids.length)throw Error(neverVisited?'本區沒有符合條件、歷史完全沒跑過的旅行社':'本區沒有可追加的到期或尚未拜訪同業，請調整區域／路名，或使用手動追加');
+ const planned=rows.filter(a=>a.planDate===date).sort((a,b)=>(Number(a.planOrder)||0)-(Number(b.planOrder)||0));
+ const round=Math.max(0,...planned.map(a=>Number(a.planRound)||0))+1;
+ const handled=a=>(a.logs||[]).some(l=>l.date===date);
+ const insertion=neverVisited?planned.reduce((i,a,n)=>handled(a)?n+1:i,0):planned.length;
+ const selected=new Map(plan.ids.map((id,i)=>[id,{planDate:date,planRound:round,today:true}]));
+ const orderIds=[...planned.slice(0,insertion).map(a=>a.id),...plan.ids,...planned.slice(insertion).map(a=>a.id)];
+ const orders=new Map(orderIds.map((id,i)=>[id,i+1]));
+ const updated=rows.map(a=>orders.has(a.id)?{...a,...(selected.get(a.id)||{}),planOrder:orders.get(a.id)}:a);
+ return{rows:updated,zone,count:plan.ids.length,added:plan.groups.flatMap(g=>g.rows),requested:limit,buildings:plan.groups.length,unknown:plan.unknown};
 }
