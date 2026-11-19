@@ -1,7 +1,7 @@
-import {toast} from './core.js?v=1.26';
-import {store} from './store.js?v=1.26';
-import {pendingKey,writePending} from './pending-sync.js?v=1.26';
-import {photoStats,compressStoredPhoto,isCardPhoto} from './card-photo.js?v=1.26';
+import {toast} from './core.js?v=1.30';
+import {store} from './store.js?v=1.30';
+import {pendingKey,writePending} from './pending-sync.js?v=1.30';
+import {photoStats,compressStoredPhoto,isCardPhoto} from './card-photo.js?v=1.30';
 let working=false;
 const format=chars=>(chars/1024/1024).toFixed(2)+' MB';
 function showStats(){

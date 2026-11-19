@@ -1,12 +1,12 @@
-import {loadDraft,saveDraft,applyDraft} from './visit-draft.js?v=1.26';
-import {createVisitClock,durationLabel,totalVisitSeconds} from './visit-clock.js?v=1.26';
-import {routeSignature,savedStreetRoute,remainingRoadMeters,roadRouteBusy,withStreetRoute} from './street-route.js?v=1.26';
-import {todayRoute,prepareStreetPlan} from './street-plan.js?v=1.26';
-import {$,today,uid,esc,toast} from './core.js?v=1.26';
-import {store} from './store.js?v=1.26';
-import {distanceLabel} from './geo.js?v=1.26';
-import {resumeVisitLocation} from './visit-location.js?v=1.26';
-import {createMileageMeter,recordTravel,totalMoved} from './travel-data.js?v=1.26';
+import {loadDraft,saveDraft,applyDraft} from './visit-draft.js?v=1.30';
+import {createVisitClock,durationLabel,totalVisitSeconds} from './visit-clock.js?v=1.30';
+import {routeSignature,savedStreetRoute,remainingRoadMeters,roadRouteBusy,withStreetRoute} from './street-route.js?v=1.30';
+import {todayRoute,prepareStreetPlan} from './street-plan.js?v=1.30';
+import {$,today,uid,esc,toast} from './core.js?v=1.30';
+import {store} from './store.js?v=1.30';
+import {distanceLabel} from './geo.js?v=1.30';
+import {resumeVisitLocation} from './visit-location.js?v=1.30';
+import {createMileageMeter,recordTravel,totalMoved} from './travel-data.js?v=1.30';
 const meter=createMileageMeter(),pending=new Map(),pendingSeconds=new Map();
 let phoneStorage=null;try{phoneStorage=localStorage}catch{}
 let draftKey='',draftId='',localSaved=true,clock=createVisitClock({add:addTime});
