@@ -1,4 +1,4 @@
-import {initAddToday} from './modules/add-today.js?v=1.28';
+import {initAddToday} from './modules/add-today.js?v=1.29';
 import {initDayClose} from './modules/day-close.js?v=1.26';
 import {initConflictResolution} from './modules/conflict-resolution.js?v=1.26';
 import {initDailyRecords,renderDailyRecords} from './modules/daily-records.js?v=1.26';
