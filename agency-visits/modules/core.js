@@ -1,4 +1,4 @@
-export const VERSION='1.26';
+export const VERSION='1.31';
 export const $=s=>document.querySelector(s);
 export const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const uid=()=>crypto.randomUUID();
@@ -10,4 +10,4 @@ export const rating=a=>hasVisited(a)&&Number(a.rating)>=1&&Number(a.rating)<=5?M
 export const intervals={1:90,2:60,3:30,4:14,5:7};
 export function toast(message){if(typeof window!=='undefined'&&window.Cloud?.dirty&&/(已儲存|已保存|已標記|已安排|已追加|已結算|已更新|已還原)/.test(message))message=message.replaceAll('已儲存','已暫存').replaceAll('已保存','已暫存')+'（尚未同步雲端）';const dialogs=[...document.querySelectorAll('dialog[open]')];(dialogs.at(-1)||document.body).append($('#toast'));$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').hidden=true,4500)}
 export function formData(form){return Object.fromEntries(new FormData(form))}
-export function initCore(){document.addEventListener('click',e=>{const b=e.target.closest('[data-close]');if(b&&!$('#'+b.dataset.close).hasAttribute('data-saving'))$('#'+b.dataset.close).close()});$('#version').textContent='v'+VERSION;$('#version').onclick=()=>location.reload()}
+export function initCore(){document.addEventListener('click',e=>{const b=e.target.closest('[data-close]');if(b&&!$('#'+b.dataset.close).hasAttribute('data-saving'))$('#'+b.dataset.close).close()});$('#version').textContent='v'+VERSION;$('#version').onclick=async()=>{const button=$('#version');button.disabled=true;button.textContent='更新中…';try{const registration=await navigator.serviceWorker?.getRegistration('./');await registration?.update();}catch{}finally{const url=new URL(location.href);url.searchParams.set('refresh',Date.now().toString());location.replace(url.href)}}}

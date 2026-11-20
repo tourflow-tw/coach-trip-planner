@@ -1,5 +1,5 @@
-import {groupKey,routeZone,floor,point,origin} from './geo.js?v=1.30';
-import {isPassed,buildPlan} from './routing.js?v=1.30';
+import {groupKey,routeZone,floor,point,origin} from './geo.js?v=1.31';
+import {isPassed,buildPlan} from './routing.js?v=1.31';
 
 // Insert manual additions directly after already handled visits and before pending
 // visits. A pending stop at the same address takes precedence, so there is only
